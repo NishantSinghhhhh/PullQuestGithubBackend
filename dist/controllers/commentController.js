@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.commentOnIssues = commentOnIssues;
-const rest_1 = require("@octokit/rest");
 const RANDOM_COMMENTS = [
     "Thanks for opening this PR! The team will review it shortly.",
     "🚀 PullQuest AI here: I've glanced at this PR and will get back to you soon!",
@@ -29,76 +28,73 @@ Issue / PR **#${n}** in **${repo}** has been queued for automated review.
     return body;
 }
 async function commentOnIssues(req, res, next) {
-    // ── LOG EVERYTHING ─────────────────────────────────────────────────────
-    console.log("📥 Incoming commentOnIssues request");
-    console.log("Headers:", JSON.stringify(req.headers, null, 2));
-    console.log("Body:", JSON.stringify(req.body, null, 2));
-    // 1️⃣ Destructure expected payload
-    const { repo: fullRepo, issue_number, issue_url, labels, } = req.body;
-    // 2️⃣ Token from header or env
-    const auth = req.headers.authorization || "";
-    const token = auth.startsWith("Bearer ")
-        ? auth.slice(7)
-        : process.env.PULLQUEST_API_KEY;
-    // ── 1. Basic validation ───────────────────────────────────────────────
-    if (!token) {
-        res.status(401).json({ success: false, message: "Missing API token" });
-        return;
-    }
-    if (!fullRepo ||
-        typeof fullRepo !== "string" ||
-        typeof issue_number !== "number" ||
-        !issue_url ||
-        !Array.isArray(labels)) {
-        res
-            .status(400)
-            .json({ success: false, message: "Missing or invalid fields" });
-        return;
-    }
-    // ── 2. parse owner/repo ─────────────────────────────────────────────
-    const parts = fullRepo.split("/");
-    if (parts.length !== 2) {
-        res
-            .status(400)
-            .json({ success: false, message: "`repo` must be 'owner/repo'" });
-        return;
-    }
-    const [owner, repoName] = parts;
-    try {
-        // ── 3. detect stake label ──────────────────────────────────────────
-        let stake;
-        for (const name of labels) {
-            const m = name.match(/stake[:\-]?(\d+)/i);
-            if (m) {
-                stake = parseInt(m[1], 10);
-                break;
-            }
-        }
-        // ── 4. craft comment ───────────────────────────────────────────────
-        const commentBody = stake === undefined && labels.length === 0
-            ? RANDOM_COMMENTS[Math.floor(Math.random() * RANDOM_COMMENTS.length)]
-            : buildComment(issue_number, fullRepo, issue_url, labels, stake);
-        // ── 5. post to GitHub ─────────────────────────────────────────────
-        const octokit = new rest_1.Octokit({ auth: token });
-        const response = await octokit.issues.createComment({
-            owner,
-            repo: repoName,
-            issue_number,
-            body: commentBody,
+    console.log("📥 GitHub webhook received");
+    // Check API key authorization
+    const authHeader = req.headers.authorization;
+    const expectedApiKey = process.env.PULLQUEST_API_KEY;
+    if (expectedApiKey && (!authHeader || !authHeader.startsWith('Bearer ' + expectedApiKey))) {
+        res.status(401).json({
+            success: false,
+            message: "Unauthorized"
         });
+        return;
+    }
+    try {
+        // Extract data from GitHub webhook payload
+        const { repository, number, pull_request, issue } = req.body;
+        // Determine if it's a PR or issue
+        const issueNumber = number || pull_request?.number || issue?.number;
+        const repoFullName = repository?.full_name;
+        if (!repoFullName || !issueNumber) {
+            res.status(400).json({
+                success: false,
+                message: "Invalid GitHub webhook payload"
+            });
+            return;
+        }
+        // Get GitHub token
+        const token = process.env.GITHUB_TOKEN || process.env.PULLQUEST_API_KEY;
+        if (!token) {
+            res.status(500).json({
+                success: false,
+                message: "GitHub token not configured"
+            });
+            return;
+        }
+        // Simple comment message
+        const commentBody = "🤖 PullQuest AI here: Thanks for your contribution! Review is queued.";
+        // Post comment to GitHub
+        const response = await fetch(`https://api.github.com/repos/${repoFullName}/issues/${issueNumber}/comments`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+                Accept: "application/vnd.github.v3+json",
+            },
+            body: JSON.stringify({ body: commentBody }),
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("❌ GitHub API error:", response.status, errorText);
+            res.status(response.status).json({
+                success: false,
+                message: `GitHub API error: ${errorText}`
+            });
+            return;
+        }
+        const commentData = await response.json();
+        console.log("✅ Comment posted successfully");
         res.status(201).json({
             success: true,
-            message: "Comment posted successfully",
-            comment: response.data,
+            comment: commentData
         });
-        return;
     }
-    catch (err) {
-        console.error("❌ Error in commentOnIssues:", err);
-        res
-            .status(500)
-            .json({ success: false, message: err.message || "Internal error" });
-        return;
+    catch (error) {
+        console.error("❌ Error posting comment:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message || "Internal server error"
+        });
     }
 }
 //# sourceMappingURL=commentController.js.map
