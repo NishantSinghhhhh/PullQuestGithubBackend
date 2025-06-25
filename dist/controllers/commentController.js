@@ -33,75 +33,72 @@ async function commentOnIssues(req, res, next) {
     console.log("📥 Incoming commentOnIssues request");
     console.log("Headers:", JSON.stringify(req.headers, null, 2));
     console.log("Body:", JSON.stringify(req.body, null, 2));
-    const { access_token, pr_link } = req.body;
+    // 1️⃣ Destructure expected payload
+    const { repo: fullRepo, issue_number, issue_url, labels, } = req.body;
+    // 2️⃣ Token from header or env
+    const auth = req.headers.authorization || "";
+    const token = auth.startsWith("Bearer ")
+        ? auth.slice(7)
+        : process.env.PULLQUEST_API_KEY;
+    // ── 1. Basic validation ───────────────────────────────────────────────
+    if (!token) {
+        res.status(401).json({ success: false, message: "Missing API token" });
+        return;
+    }
+    if (!fullRepo ||
+        typeof fullRepo !== "string" ||
+        typeof issue_number !== "number" ||
+        !issue_url ||
+        !Array.isArray(labels)) {
+        res
+            .status(400)
+            .json({ success: false, message: "Missing or invalid fields" });
+        return;
+    }
+    // ── 2. parse owner/repo ─────────────────────────────────────────────
+    const parts = fullRepo.split("/");
+    if (parts.length !== 2) {
+        res
+            .status(400)
+            .json({ success: false, message: "`repo` must be 'owner/repo'" });
+        return;
+    }
+    const [owner, repoName] = parts;
     try {
-        /* ── 1. basic validation ─────────────────────────────────────────── */
-        if (!access_token || typeof access_token !== "string") {
-            res
-                .status(400)
-                .json({ error: "`access_token` is required and must be a string" });
-            return;
-        }
-        if (!pr_link || typeof pr_link !== "string") {
-            res
-                .status(400)
-                .json({ error: "`pr_link` is required and must be a string" });
-            return;
-        }
-        /* ── 2. parse the GitHub URL ⟨owner/repo/(pull|issues)/number⟩ ───── */
-        let owner, repo, issue_number;
-        try {
-            const urlObj = new URL(pr_link);
-            const parts = urlObj.pathname.split("/").filter(Boolean); // ['', owner, repo, type, num]
-            if (parts.length < 4)
-                throw new Error("URL must be /owner/repo/pull/Num");
-            [owner, repo] = parts;
-            issue_number = Number(parts[3]);
-            if (!Number.isInteger(issue_number))
-                throw new Error("Invalid issue / PR number");
-        }
-        catch (err) {
-            res.status(400).json({ error: `Malformed pr_link: ${err.message}` });
-            return;
-        }
-        /* ── 3. fetch labels to detect stake ─────────────────────────────── */
-        const octokit = new rest_1.Octokit({ auth: access_token });
-        const { data: { labels = [], html_url }, } = await octokit.issues.get({
-            owner,
-            repo,
-            issue_number,
-        });
-        const labelNames = labels
-            .map((l) => (typeof l === "string" ? l : l.name))
-            .filter((x) => !!x);
+        // ── 3. detect stake label ──────────────────────────────────────────
         let stake;
-        for (const name of labelNames) {
+        for (const name of labels) {
             const m = name.match(/stake[:\-]?(\d+)/i);
             if (m) {
                 stake = parseInt(m[1], 10);
                 break;
             }
         }
-        /* ── 4. craft the comment body ───────────────────────────────────── */
-        const commentBody = stake === undefined && labelNames.length === 0
-            ? // fall back to a friendly random blurb when nothing fancy to show
-                RANDOM_COMMENTS[Math.floor(Math.random() * RANDOM_COMMENTS.length)]
-            : buildComment(issue_number, repo, pr_link ?? html_url, labelNames, stake);
-        /* ── 5. post the comment back to GitHub ──────────────────────────── */
+        // ── 4. craft comment ───────────────────────────────────────────────
+        const commentBody = stake === undefined && labels.length === 0
+            ? RANDOM_COMMENTS[Math.floor(Math.random() * RANDOM_COMMENTS.length)]
+            : buildComment(issue_number, fullRepo, issue_url, labels, stake);
+        // ── 5. post to GitHub ─────────────────────────────────────────────
+        const octokit = new rest_1.Octokit({ auth: token });
         const response = await octokit.issues.createComment({
             owner,
-            repo,
+            repo: repoName,
             issue_number,
             body: commentBody,
         });
         res.status(201).json({
+            success: true,
             message: "Comment posted successfully",
             comment: response.data,
         });
+        return;
     }
     catch (err) {
         console.error("❌ Error in commentOnIssues:", err);
-        next(err);
+        res
+            .status(500)
+            .json({ success: false, message: err.message || "Internal error" });
+        return;
     }
 }
 //# sourceMappingURL=commentController.js.map
