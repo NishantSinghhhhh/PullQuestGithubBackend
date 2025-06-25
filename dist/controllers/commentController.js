@@ -8,7 +8,6 @@ const RANDOM_COMMENTS = [
     "🤖 Automated review: Thanks for your contribution! We'll take a look ASAP.",
     "📝 PullQuest AI comment: Great work—review is queued!",
 ];
-/** helper to build the final comment body */
 function buildComment(n, repo, url, labels, stake) {
     const labelList = labels.length
         ? labels.map((l) => `\`${l}\``).join(" ")
@@ -29,12 +28,11 @@ Issue / PR **#${n}** in **${repo}** has been queued for automated review.
 `;
     return body;
 }
-/**
- * POST /api/comment-pr
- * Expects JSON body ⟨access_token, pr_link⟩
- * Posts a comment that includes label info + stake (if present).
- */
 async function commentOnIssues(req, res, next) {
+    // ── LOG EVERYTHING ─────────────────────────────────────────────────────
+    console.log("📥 Incoming commentOnIssues request");
+    console.log("Headers:", JSON.stringify(req.headers, null, 2));
+    console.log("Body:", JSON.stringify(req.body, null, 2));
     const { access_token, pr_link } = req.body;
     try {
         /* ── 1. basic validation ─────────────────────────────────────────── */
