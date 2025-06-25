@@ -17,13 +17,23 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const commentRoutes_1 = __importDefault(require("./routes/commentRoutes"));
 const app = (0, express_1.default)();
 app.use((0, helmet_1.default)());
-// Allow all origins (change to `origin: true` if you only want to echo back the Origin)
 app.use((0, cors_1.default)({
     origin: true,
     credentials: true,
 }));
 app.use(express_1.default.json());
-// ─── Health check ───────────────────────────────────────────────────────
+app.get("/", (_req, res) => {
+    res.status(200).json({
+        success: true,
+        service: "PullQuest Backend API",
+        version: "v1.0.0",
+        message: "👋 Welcome to the PullQuest Backend!",
+        docs: [
+            { path: "/health", desc: "Health check" },
+            { path: "/api/comment/issues", desc: "POST → comment on PR/issue" },
+        ],
+    });
+});
 app.get("/health", (_req, res) => {
     res.status(200).json({
         success: true,
@@ -33,10 +43,6 @@ app.get("/health", (_req, res) => {
     });
 });
 app.use('/api/comment', commentRoutes_1.default);
-// ─── Your routes go here ────────────────────────────────────────────────
-// e.g.:
-// import commentRoutes from "./routes/commentRoutes";
-// app.use("/api/comment", commentRoutes);
 // 404 handler (must come after all other routes)
 app.use((_req, res) => {
     res.status(404).json({
