@@ -17,7 +17,6 @@ const app: Application = express();
 
 app.use(helmet());
 
-// Allow all origins (change to `origin: true` if you only want to echo back the Origin)
 app.use(
   cors({
     origin: true,
@@ -27,7 +26,19 @@ app.use(
 
 app.use(express.json());
 
-// ─── Health check ───────────────────────────────────────────────────────
+app.get("/", (_req: Request, res: Response) => {
+    res.status(200).json({
+      success: true,
+      service: "PullQuest Backend API",
+      version: "v1.0.0",
+      message: "👋 Welcome to the PullQuest Backend!",
+      docs: [
+        { path: "/health",    desc: "Health check" },
+        { path: "/api/comment/issues", desc: "POST → comment on PR/issue" },
+      ],
+    });
+  });
+
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({
     success: true,
@@ -38,10 +49,6 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 app.use('/api/comment', commentRoute);
-// ─── Your routes go here ────────────────────────────────────────────────
-// e.g.:
-// import commentRoutes from "./routes/commentRoutes";
-// app.use("/api/comment", commentRoutes);
 
 // 404 handler (must come after all other routes)
 app.use((_req: Request, res: Response) => {
