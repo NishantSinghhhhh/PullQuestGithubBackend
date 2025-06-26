@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { commentOnIssue } from "../controllers/commentController";
+import { commentOnIssue, commentOnPrs } from "../controllers/commentController";
 
 const router = Router();
 
-// Make sure the route path and method are correct
 router.post("/issues", commentOnIssue);
+router.post("/PullRequest", commentOnPrs);
 
 export default router;
