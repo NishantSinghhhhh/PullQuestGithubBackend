@@ -29,25 +29,54 @@ const commentOnIssue = async (req, res) => {
     }
 };
 exports.commentOnIssue = commentOnIssue;
+async function fetchIssueDetails(owner, repo, issueNumber) {
+    const token = process.env.GITHUB_COMMENT_TOKEN;
+    const url = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`;
+    const resp = await fetch(url, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github.v3+json"
+        }
+    });
+    if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`GitHub API error fetching issue: ${resp.status} ${resp.statusText} — ${text}`);
+    }
+    return (await resp.json());
+}
 const commentOnPrs = async (req, res) => {
-    /*── 1.  Log full payload for debugging ─────────────────────────────*/
     console.log("📥 Incoming PR payload:", JSON.stringify(req.body, null, 2));
-    /*── 2.  Destructure the expected fields ────────────────────────────*/
-    const { owner, // "PullQuest-Test"
-    repo, // "backend"
-    prNumber, // 12
-    author, // "NishantSinghhhhh"
-    description = "", // PR body text
-    labels = [] // ["stake-30", …]
-     } = req.body;
+    const { owner, repo, prNumber, author, description = "", labels = [] } = req.body;
     if (!owner || !repo || !prNumber || !author) {
-        res.status(400).json({ error: "owner, repo, prNumber and author are required" });
+        res
+            .status(400)
+            .json({ error: "owner, repo, prNumber and author are required" });
         return;
     }
-    const stakeLabel = labels.find(l => /^stake[-:\s]?(\d+)$/i.test(l));
-    const stakeAmt = stakeLabel ? Number(stakeLabel.match(/(\d+)/)[1]) : 0;
+    /* ── 1.  Extract stake from PR labels (fallback) ─────────────── */
+    const stakeFromPR = labels.find(l => /^stake[-:\s]?(\d+)$/i.test(l));
+    let stakeAmt = stakeFromPR ? Number(stakeFromPR.match(/(\d+)/)[1]) : 0;
+    /* ── 2.  Look for “#123” in PR body and fetch that issue’s labels ─ */
     const issueMatch = description.match(/#(\d+)/);
-    const issueRef = issueMatch ? `#${issueMatch[1]}` : "no linked issue";
+    let issueRef = "no linked issue";
+    if (issueMatch) {
+        const linkedIssueNumber = Number(issueMatch[1]);
+        issueRef = `#${linkedIssueNumber}`;
+        try {
+            const issueData = await fetchIssueDetails(owner, repo, linkedIssueNumber);
+            const stakeLabel = issueData.labels
+                .map(l => l.name)
+                .find(n => /^stake[-:\s]?(\d+)$/i.test(n));
+            if (stakeLabel) {
+                stakeAmt = Number(stakeLabel.match(/(\d+)/)[1]);
+            }
+        }
+        catch (e) {
+            console.error("⚠️  Could not fetch linked issue:", e);
+            // keep stakeAmt as-is; continue
+        }
+    }
+    /* ── 3.  Build and post comment ───────────────────────────────── */
     const commentBody = `🎉  Thanks for opening this pull request, @${author}!
 
 • Linked issue: **${issueRef}**
@@ -58,7 +87,9 @@ const commentOnPrs = async (req, res) => {
     }
     catch (err) {
         console.error("❌ Failed to post PR comment:", err);
-        res.status(502).json({ error: err.message ?? "GitHub request failed" });
+        res
+            .status(502)
+            .json({ error: err.message ?? "GitHub request failed" });
     }
 };
 exports.commentOnPrs = commentOnPrs;
