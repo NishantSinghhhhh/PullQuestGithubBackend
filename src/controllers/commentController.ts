@@ -3,11 +3,13 @@ import { Request, Response, RequestHandler } from "express";
 import { postIssueComment } from "../utils/githubComment";
 
 export const commentOnIssue: RequestHandler = async (req: Request, res: Response): Promise<void> => {
+  console.log("📥 Incoming payload:", JSON.stringify(req.body, null, 2));
+
   const { owner, repo, issueNumber, labels } = req.body as {
     owner: string;
     repo: string;
     issueNumber: number;
-    labels: string[];
+    labels?: string[];
   };
 
   if (!owner || !repo || !issueNumber) {
@@ -16,10 +18,8 @@ export const commentOnIssue: RequestHandler = async (req: Request, res: Response
     });
   }
 
-  // Build a dynamic comment; tweak wording as you like
   const labelList = (labels ?? []).join(", ") || "none";
-  const commentBody = `🎉  Thanks for opening this!  
-  _Labels_: ${labelList}`;
+  const commentBody = `🎉  Thanks for opening this!\n_Labels_: ${labelList}`;
 
   try {
     const comment = await postIssueComment(owner, repo, issueNumber, commentBody);
