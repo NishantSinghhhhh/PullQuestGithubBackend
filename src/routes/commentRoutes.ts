@@ -1,10 +1,9 @@
-// src/routes/commentRoutes.ts
 import { Router } from "express";
-import { commentOnIssues } from "../controllers/commentController";
+import { commentOnIssue } from "../controllers/commentController";
 
 const router = Router();
 
-/* POST /api/comment/issues */
-router.post("/issues", commentOnIssues);
+// Make sure the route path and method are correct
+router.post("/issues", commentOnIssue);
 
 export default router;
