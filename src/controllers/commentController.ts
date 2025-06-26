@@ -1,6 +1,6 @@
 // src/controllers/commentController.ts
 import { Request, Response, RequestHandler } from "express";
-import { postIssueComment } from "../utils/githubComment";
+import { postIssueComment, postPullRequestReviewComment } from "../utils/githubComment";
 
 export const commentOnIssue: RequestHandler = async (req, res) => {
   console.log("📥 Incoming payload:", JSON.stringify(req.body, null, 2));
@@ -62,6 +62,7 @@ async function fetchIssueDetails(
   }
   return (await resp.json()) as any;
 }
+
 export const commentOnPrs: RequestHandler = async (req, res) => {
   console.log("📥 Incoming PR payload:", JSON.stringify(req.body, null, 2));
 
@@ -122,5 +123,55 @@ export const commentOnPrs: RequestHandler = async (req, res) => {
     res
       .status(502)
       .json({ error: err.message ?? "GitHub request failed" });
+  }
+};
+
+export const commentOnPrReview: RequestHandler = async (req, res) => {
+  console.log("📥 Incoming PR review payload:", JSON.stringify(req.body, null, 2));
+
+  const {
+    owner,
+    repo,
+    pullNumber,
+    commitId,
+    path,
+    line,
+    side,
+    body: commentBody
+  }: {
+    owner?: string;
+    repo?: string;
+    pullNumber?: number;
+    commitId?: string;
+    path?: string;
+    line?: number;
+    side?: "LEFT" | "RIGHT";
+    body?: string;
+  } = req.body;
+
+  // Validate required fields
+  if (!owner || !repo || !pullNumber || !commitId || !path || !line || !side || !commentBody) {
+    res.status(400).json({
+      error: "owner, repo, pullNumber, commitId, path, line, side and body are all required"
+    });
+    return;
+  }
+
+  try {
+    const reviewComment = await postPullRequestReviewComment(
+      owner,
+      repo,
+      pullNumber,
+      commitId,
+      path,
+      line,
+      side,
+      commentBody
+    );
+    // Return the URL of the created review comment
+    res.status(201).json({ url: reviewComment.html_url || reviewComment.url });
+  } catch (err: any) {
+    console.error("❌ Failed to post PR review comment:", err);
+    res.status(502).json({ error: err.message ?? "GitHub review-comment request failed" });
   }
 };

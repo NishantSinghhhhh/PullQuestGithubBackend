@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.commentOnPrs = exports.commentOnIssue = void 0;
+exports.commentOnPrReview = exports.commentOnPrs = exports.commentOnIssue = void 0;
 const githubComment_1 = require("../utils/githubComment");
 const commentOnIssue = async (req, res) => {
     console.log("📥 Incoming payload:", JSON.stringify(req.body, null, 2));
@@ -93,4 +93,25 @@ const commentOnPrs = async (req, res) => {
     }
 };
 exports.commentOnPrs = commentOnPrs;
+const commentOnPrReview = async (req, res) => {
+    console.log("📥 Incoming PR review payload:", JSON.stringify(req.body, null, 2));
+    const { owner, repo, pullNumber, commitId, path, line, side, body: commentBody } = req.body;
+    // Validate required fields
+    if (!owner || !repo || !pullNumber || !commitId || !path || !line || !side || !commentBody) {
+        res.status(400).json({
+            error: "owner, repo, pullNumber, commitId, path, line, side and body are all required"
+        });
+        return;
+    }
+    try {
+        const reviewComment = await (0, githubComment_1.postPullRequestReviewComment)(owner, repo, pullNumber, commitId, path, line, side, commentBody);
+        // Return the URL of the created review comment
+        res.status(201).json({ url: reviewComment.html_url || reviewComment.url });
+    }
+    catch (err) {
+        console.error("❌ Failed to post PR review comment:", err);
+        res.status(502).json({ error: err.message ?? "GitHub review-comment request failed" });
+    }
+};
+exports.commentOnPrReview = commentOnPrReview;
 //# sourceMappingURL=commentController.js.map
