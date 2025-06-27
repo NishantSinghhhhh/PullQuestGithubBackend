@@ -14,6 +14,7 @@ import helmet from "helmet";
 import mongoose from "mongoose";
 import commentRoute from "./routes/commentRoutes";
 import GptRoute from "./routes/GptRoute"
+import AiReview from "./routes/ai-review"
 const app: Application = express();
 
 app.use(helmet());
@@ -51,7 +52,7 @@ app.get("/health", (_req: Request, res: Response) => {
 
 app.use('/api/comment', commentRoute);
 app.use('/api/chatgpt', GptRoute);
-
+app.use('/api', AiReview )
 // 404 handler (must come after all other routes)
 app.use((_req: Request, res: Response) => {
   res.status(404).json({

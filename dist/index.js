@@ -16,6 +16,7 @@ const helmet_1 = __importDefault(require("helmet"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const commentRoutes_1 = __importDefault(require("./routes/commentRoutes"));
 const GptRoute_1 = __importDefault(require("./routes/GptRoute"));
+const ai_review_1 = __importDefault(require("./routes/ai-review"));
 const app = (0, express_1.default)();
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)({
@@ -45,6 +46,7 @@ app.get("/health", (_req, res) => {
 });
 app.use('/api/comment', commentRoutes_1.default);
 app.use('/api/chatgpt', GptRoute_1.default);
+app.use('/api', ai_review_1.default);
 // 404 handler (must come after all other routes)
 app.use((_req, res) => {
     res.status(404).json({
