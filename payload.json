@@ -1,0 +1,7 @@
+{
+  "owner": "PullQuest-Test",
+  "repo": "backend",
+  "prNumber": 8,
+  "commitId": "c97cdb9862d77282f7294a3dc8aec141686b27a3",
+  "diff": "diff --git a/src/auth/github.ts b/src/auth/github.ts\nindex 530d594..04682ff 100644\n--- a/src/auth/github.ts\n+++ b/src/auth/github.ts\n@@ -8,9 +8,6 @@ import dotenv from dotenv;\n \n dotenv.config();\n \n-passport.serializeUser((user, done) => {\n-  done(null, user);\n-});\n \n passport.deserializeUser((obj: any, done) => {\n   done(null, obj);\n@@ -25,15 +22,16 @@ passport.use(\n       scope: [\n         read:user,\n         user:email, \n-        repo, \n-       \n+\n+        write:repo_hook, \n+        admin:repo_hook, \n       ]\n     },\n     \n     function (\n       accessToken: string,\n       refreshToken: string,\n-      profile: GitHubProfile,\n+  \n       done: VerifyCallback\n     ) {\n       const user = {\ndiff --git a/src/index.ts b/src/index.ts\nindex 4507956..2cc8a9e 100644\n--- a/src/index.ts\n+++ b/src/index.ts\n@@ -32,7 +32,6 @@ app.use(cors({\n \n app.use(express.json());\n \n-// ✅ Initialize Passport WITHOUT sessions (serverless-fri..."
+}

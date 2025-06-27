@@ -12,7 +12,6 @@ interface Suggestion {
 }
 
 export const handleCodeReview: RequestHandler = async (req, res) => {
-  /* ───────────── Verbose payload logging ───────────── */
   console.log("🟢 RAW req.body object ➜");
   console.dir(req.body, { depth: null, colors: false });
 

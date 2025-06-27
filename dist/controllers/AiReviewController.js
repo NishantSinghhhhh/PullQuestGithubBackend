@@ -8,7 +8,6 @@ const util_1 = __importDefault(require("util"));
 const githubcodereview_1 = require("../utils/githubcodereview");
 const githubComment_1 = require("../utils/githubComment");
 const handleCodeReview = async (req, res) => {
-    /* ───────────── Verbose payload logging ───────────── */
     console.log("🟢 RAW req.body object ➜");
     console.dir(req.body, { depth: null, colors: false });
     console.log("🟢 req.body JSON.stringify ➜");
