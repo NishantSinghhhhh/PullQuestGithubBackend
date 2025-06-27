@@ -21,13 +21,16 @@ async function reviewCodeForGitHub(params) {
             content: params.diff
         }
     ];
+    // 2️⃣ Ask OpenAI for the review
     const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages,
         temperature: 0.3,
         max_tokens: 1000
     });
-    console.log("🛰️ OpenAI GitHub review raw response:", JSON.stringify(completion, null, 2));
+    // ❌ Removed verbose log:
+    // console.log("🛰️ OpenAI GitHub review raw response:", JSON.stringify(completion, null, 2));
+    // 3️⃣ Extract the review text
     const review = completion.choices?.[0]?.message?.content?.trim() ?? "";
     return { review, raw: completion };
 }
