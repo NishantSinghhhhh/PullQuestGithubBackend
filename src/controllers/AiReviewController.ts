@@ -3,12 +3,70 @@ import { Request, Response, RequestHandler } from "express";
 import util from "util";
 import { reviewCodeForGitHub } from "../utils/githubcodereview";
 import { postPullRequestReviewComment } from "../utils/githubComment";
-import { fetchHeadCommitOfPR } from "../utils/githubCommit";   // ← NEW
+import { fetchHeadCommitOfPR } from "../utils/githubCommit";   // keeps the existing helper
+
+/* ──────────────────────────────────────────────────────────────
+   LOCAL helper — translate an absolute file/line → (hunk-relative
+   line, side) so GitHub accepts the review comment.
+   ──────────────────────────────────────────────────────────── */
+
+function findLineInPatch(
+  unifiedDiff: string,
+  wantedPath: string,
+  wantedLine: number
+): { lineInHunk: number; side: "LEFT" | "RIGHT" } | null {
+  const lines = unifiedDiff.split("\n");
+
+  let currentPath = "";
+  let oldLine = 0;
+  let newLine = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+
+    // file header
+    if (l.startsWith("+++ b/")) {
+      currentPath = l.slice(6).trim();
+      oldLine = 0;
+      newLine = 0;
+      continue;
+    }
+    if (!currentPath || currentPath !== wantedPath) continue;
+
+    // hunk header e.g. @@ -1,3 +1,4 @@
+    if (l.startsWith("@@")) {
+      const match = /@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(l);
+      if (match) {
+        oldLine = Number(match[1]);
+        newLine = Number(match[2]);
+      }
+      continue;
+    }
+
+    // context / deletion / addition
+    if (l.startsWith(" ")) {
+      oldLine++;
+      newLine++;
+    } else if (l.startsWith("-")) {
+      if (oldLine === wantedLine) {
+        return { lineInHunk: oldLine, side: "LEFT" };
+      }
+      oldLine++;
+    } else if (l.startsWith("+")) {
+      if (newLine === wantedLine) {
+        return { lineInHunk: newLine, side: "RIGHT" };
+      }
+      newLine++;
+    }
+  }
+  return null;
+}
+
+/* ────────────────────────────────────────────────────────────── */
 
 interface Suggestion {
   file: string;
-  line: number;
-  side: "LEFT" | "RIGHT";
+  line: number;                 // absolute line in the file (from GPT)
+  side: "LEFT" | "RIGHT";       // GPT’s guess – we’ll recompute anyway
   comment: string;
 }
 
@@ -76,15 +134,29 @@ export const handleCodeReview: RequestHandler = async (req, res) => {
       return;
     }
   }
-
   console.log(`📝 Using commit SHA for review comments: ${sha}`);
 
   /* 4️⃣  Post inline comments */
   const postedUrls: string[] = [];
+  const skipped: Suggestion[] = [];
+
   for (const s of suggestions) {
+    const rel = findLineInPatch(diff, s.file, s.line);
+    if (!rel) {
+      console.warn(`⚠️  ${s.file}:${s.line} not found in diff – skipping`);
+      skipped.push(s);
+      continue;
+    }
     try {
       const c = await postPullRequestReviewComment(
-        owner, repo, prNumber, sha, s.file, s.line, s.side, s.comment
+        owner!,
+        repo!,
+        prNumber!,
+        sha,
+        s.file,
+        rel.lineInHunk,
+        rel.side,
+        s.comment
       );
       postedUrls.push(c.html_url || c.url);
     } catch (err: any) {
@@ -92,10 +164,11 @@ export const handleCodeReview: RequestHandler = async (req, res) => {
     }
   }
 
-  /* 5️⃣  Respond to caller (also expose commit SHA we used) */
+  /* 5️⃣  Respond to caller */
   res.status(201).json({
     posted: postedUrls.length,
     urls: postedUrls,
-    commitIdUsed: sha               // ← transparency for debugging
+    skipped,
+    commitIdUsed: sha
   });
 };
