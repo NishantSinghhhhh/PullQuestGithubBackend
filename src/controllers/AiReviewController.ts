@@ -61,7 +61,6 @@ function findLineInPatch(
   return null;
 }
 
-/* ────────────────────────────────────────────────────────────── */
 
 interface Suggestion {
   file: string;
