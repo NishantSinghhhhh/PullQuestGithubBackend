@@ -1,6 +1,6 @@
 // src/utils/openai.ts
-
 import OpenAI from "openai";
+
 const openai = new OpenAI();
 
 export interface GitHubReviewParams {
@@ -9,7 +9,7 @@ export interface GitHubReviewParams {
 }
 
 export interface GitHubReviewResponse {
-  /** AI’s review commentary suitable for posting on GitHub */
+  /** AI's review commentary suitable for posting on GitHub */
   review: string;
   /** Raw OpenAI response for debugging */
   raw: any;
@@ -18,14 +18,28 @@ export interface GitHubReviewResponse {
 export async function reviewCodeForGitHub(
   params: GitHubReviewParams
 ): Promise<GitHubReviewResponse> {
-  // 1️⃣ Construct a prompt tailored for GitHub code review
-  const messages = [
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     {
       role: "system" as const,
-      content:
-        "You are a GitHub code reviewer. Given a unified diff, provide concise feedback: " +
-        "point out bugs, suggest improvements, and highlight best practices. " +
-        "Respond in markdown bullet points, without including the diff itself."
+      content: `You are a GitHub code reviewer. Given a unified diff, return ONLY a valid JSON array of review suggestions.
+
+        Each element must be an object with these exact properties:
+        - "file": string (path to the file relative to repo root, extracted from the diff)
+        - "line": integer (line number where the comment should be placed)
+        - "side": "RIGHT" (for new code) or "LEFT" (for deleted code)
+        - "comment": string (your concise review comment in markdown)
+
+        CRITICAL: Return ONLY the JSON array. Do not wrap it in markdown code blocks. Do not include any other text, explanations, or formatting. Just the raw JSON array starting with [ and ending with ].
+
+        Example format:
+        [
+        {
+            "file": "src/example.ts",
+            "line": 10,
+            "side": "RIGHT",
+            "comment": "Consider using const instead of let for immutable variables"
+        }
+        ]`
     },
     {
       role: "user" as const,
@@ -33,18 +47,15 @@ export async function reviewCodeForGitHub(
     }
   ];
 
-  // 2️⃣ Ask OpenAI for the review
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages,
-    temperature: 0.3,
+    temperature: 0.1, // Lower temperature for more consistent JSON output
     max_tokens: 1000
   });
 
-  // ❌ Removed verbose log:
-  // console.log("🛰️ OpenAI GitHub review raw response:", JSON.stringify(completion, null, 2));
+  console.log("🤖 OpenAI review request completed");
 
-  // 3️⃣ Extract the review text
   const review = completion.choices?.[0]?.message?.content?.trim() ?? "";
 
   return { review, raw: completion };
