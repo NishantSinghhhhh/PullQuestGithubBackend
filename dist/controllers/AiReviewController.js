@@ -7,7 +7,9 @@ exports.handleCodeReview = void 0;
 const util_1 = __importDefault(require("util"));
 const githubcodereview_1 = require("../utils/githubcodereview");
 const githubComment_1 = require("../utils/githubComment");
+const githubCommit_1 = require("../utils/githubCommit"); // ← NEW
 const handleCodeReview = async (req, res) => {
+    /* ───────────── Verbose payload logging ───────────── */
     console.log("🟢 RAW req.body object ➜");
     console.dir(req.body, { depth: null, colors: false });
     console.log("🟢 req.body JSON.stringify ➜");
@@ -15,13 +17,12 @@ const handleCodeReview = async (req, res) => {
     console.log("🟢 util.inspect(req.body, {depth:null}) ➜");
     console.log(util_1.default.inspect(req.body, { depth: null, maxArrayLength: null }));
     /* ─────────────────────────────────────────────────── */
-    const { owner, repo, prNumber, diff, commitId // should come from the workflow
-     } = req.body;
+    const { owner, repo, prNumber, diff, commitId } = req.body;
     if (!owner || !repo || !prNumber || !diff) {
         res.status(400).json({ error: "owner, repo, prNumber and diff are required" });
         return;
     }
-    /* 1️⃣  Ask OpenAI */
+    /* 1️⃣  Ask OpenAI for suggestions */
     let rawReview;
     try {
         const { review } = await (0, githubcodereview_1.reviewCodeForGitHub)({ diff });
@@ -42,12 +43,21 @@ const handleCodeReview = async (req, res) => {
         res.status(502).json({ error: "Invalid JSON from AI" });
         return;
     }
-    /* 3️⃣  Post inline comments */
-    const sha = commitId || req.header("x-github-sha");
+    /* 3️⃣  Resolve commit SHA */
+    let sha = commitId || req.header("x-github-sha");
     if (!sha) {
-        res.status(400).json({ error: "commitId is required (in body or x-github-sha header)" });
-        return;
+        try {
+            const { headSha } = await (0, githubCommit_1.fetchHeadCommitOfPR)(owner, repo, prNumber);
+            sha = headSha;
+        }
+        catch (err) {
+            console.error("❌ Failed to fetch head commit:", err);
+            res.status(502).json({ error: "Unable to resolve HEAD commit SHA" });
+            return;
+        }
     }
+    console.log(`📝 Using commit SHA for review comments: ${sha}`);
+    /* 4️⃣  Post inline comments */
     const postedUrls = [];
     for (const s of suggestions) {
         try {
@@ -58,7 +68,12 @@ const handleCodeReview = async (req, res) => {
             console.error(`❌ Failed to post comment on ${s.file}:${s.line}`, err);
         }
     }
-    res.status(201).json({ posted: postedUrls.length, urls: postedUrls });
+    /* 5️⃣  Respond to caller (also expose commit SHA we used) */
+    res.status(201).json({
+        posted: postedUrls.length,
+        urls: postedUrls,
+        commitIdUsed: sha // ← transparency for debugging
+    });
 };
 exports.handleCodeReview = handleCodeReview;
 //# sourceMappingURL=AiReviewController.js.map

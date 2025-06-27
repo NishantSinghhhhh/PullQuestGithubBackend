@@ -143,7 +143,7 @@ export interface ReviewCommentResponse {
         // For multi-line comments, you can also include:
         // start_line: <number>,
         // start_side: "LEFT" | "RIGHT"
-      }),
+      }), 
     });
   
     if (!res.ok) {

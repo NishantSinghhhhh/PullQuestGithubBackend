@@ -3,6 +3,7 @@ import { Request, Response, RequestHandler } from "express";
 import util from "util";
 import { reviewCodeForGitHub } from "../utils/githubcodereview";
 import { postPullRequestReviewComment } from "../utils/githubComment";
+import { fetchHeadCommitOfPR } from "../utils/githubCommit";   // ← NEW
 
 interface Suggestion {
   file: string;
@@ -12,6 +13,7 @@ interface Suggestion {
 }
 
 export const handleCodeReview: RequestHandler = async (req, res) => {
+  /* ───────────── Verbose payload logging ───────────── */
   console.log("🟢 RAW req.body object ➜");
   console.dir(req.body, { depth: null, colors: false });
 
@@ -27,7 +29,7 @@ export const handleCodeReview: RequestHandler = async (req, res) => {
     repo,
     prNumber,
     diff,
-    commitId          // should come from the workflow
+    commitId
   }: {
     owner?: string;
     repo?: string;
@@ -41,7 +43,7 @@ export const handleCodeReview: RequestHandler = async (req, res) => {
     return;
   }
 
-  /* 1️⃣  Ask OpenAI */
+  /* 1️⃣  Ask OpenAI for suggestions */
   let rawReview: string;
   try {
     const { review } = await reviewCodeForGitHub({ diff });
@@ -62,13 +64,22 @@ export const handleCodeReview: RequestHandler = async (req, res) => {
     return;
   }
 
-  /* 3️⃣  Post inline comments */
-  const sha = commitId || req.header("x-github-sha");
+  /* 3️⃣  Resolve commit SHA */
+  let sha = commitId || req.header("x-github-sha");
   if (!sha) {
-    res.status(400).json({ error: "commitId is required (in body or x-github-sha header)" });
-    return;
+    try {
+      const { headSha } = await fetchHeadCommitOfPR(owner!, repo!, prNumber!);
+      sha = headSha;
+    } catch (err) {
+      console.error("❌ Failed to fetch head commit:", err);
+      res.status(502).json({ error: "Unable to resolve HEAD commit SHA" });
+      return;
+    }
   }
 
+  console.log(`📝 Using commit SHA for review comments: ${sha}`);
+
+  /* 4️⃣  Post inline comments */
   const postedUrls: string[] = [];
   for (const s of suggestions) {
     try {
@@ -81,5 +92,10 @@ export const handleCodeReview: RequestHandler = async (req, res) => {
     }
   }
 
-  res.status(201).json({ posted: postedUrls.length, urls: postedUrls });
+  /* 5️⃣  Respond to caller (also expose commit SHA we used) */
+  res.status(201).json({
+    posted: postedUrls.length,
+    urls: postedUrls,
+    commitIdUsed: sha               // ← transparency for debugging
+  });
 };
