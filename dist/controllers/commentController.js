@@ -127,8 +127,8 @@ const formComment = async (req, res) => {
        ──────────────────────────────────────────────────────────────── */
     const commentBody = `
   Hi @${commenter}!  
-  Below is your **Contributor Rating form** for PR **#${prNumber}**.  
-  Please edit the table with numbers \`1–5\` (5 = excellent) and add comments if needed. When you’re done, hit **Save**.
+  Below is your **Contributor Rating form** .  
+  Please edit the table with numbers \`1–5\` (5 = excellent) .
 
   | Category | Rating (1-5) | Notes |
   |----------|--------------|-------|
@@ -141,18 +141,14 @@ const formComment = async (req, res) => {
   ---
 
   ### ✨ Special points already spotted
-  * Codebase is **well-documented** – great use of JSDoc blocks.
-  * Commit messages are clear and follow *Conventional Commits*.
-  * Uses modern TypeScript features effectively.
+  * Codebase is **well-documented** – great use of JSDoc blocks = 10xp.
+  * Commit messages are clear and follow *Conventional Commits* = 5xp.
+  * The work is less buggy = 15xp .
 
   ---
 
-  ### 📊 XP snapshot
-  * **XP earned for this PR:** **150 🪙**
-  * **Total XP:** **2 450 🪙**  (Level 5 Contributor)
-
-  > **Maintainers:** to award bonus XP, add a new PR comment like  
-  > \`@pullquestai add 50 xp\`  (you may replace **50** with any whole-number value).
+  > **Maintainers:** to award bonus XP, by adding a new PR comment like  
+  > \`@pullquestai add 50 xp to @Contributer Name\`  (you may replace **50** with any whole-number value).
 
   Keep up the awesome work 🚀
   `;
