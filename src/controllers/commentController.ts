@@ -251,3 +251,26 @@ Keep up the awesome work 🚀
     });
   }
 };
+
+export const AddbonusXp: RequestHandler = async (req, res) => {
+  console.log("📥 Incoming bonus XP payload:", JSON.stringify(req.body, null, 2));
+  
+  const { owner, repo, prNumber, targetUser, xpAmount } = req.body;
+  
+  if (!owner || !repo || !prNumber || !targetUser || !xpAmount) {
+    res.status(400).json({ error: "Missing required fields" });
+    return;
+  }
+  
+  console.log(`🎉 Adding ${xpAmount} XP to @${targetUser}`);
+  
+  const commentBody = `Added ${xpAmount} XP to @${targetUser}`;
+  
+  try {
+    const comment = await postPRFormComment(owner, repo, prNumber, commentBody);
+    res.status(201).json({ success: true, comment_url: comment.html_url });
+  } catch (err: any) {
+    console.error("❌ Failed to post bonus XP comment:", err);
+    res.status(502).json({ error: err.message ?? "GitHub request failed" });
+  }
+};

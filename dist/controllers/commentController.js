@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.formComment = exports.commentOnPrReview = exports.commentOnPrs = exports.commentOnIssue = void 0;
+exports.AddbonusXp = exports.formComment = exports.commentOnPrReview = exports.commentOnPrs = exports.commentOnIssue = void 0;
 const githubComment_1 = require("../utils/githubComment");
 const commentOnIssue = async (req, res) => {
     console.log("📥 Incoming payload:", JSON.stringify(req.body, null, 2));
@@ -185,4 +185,23 @@ Keep up the awesome work 🚀
     }
 };
 exports.formComment = formComment;
+const AddbonusXp = async (req, res) => {
+    console.log("📥 Incoming bonus XP payload:", JSON.stringify(req.body, null, 2));
+    const { owner, repo, prNumber, targetUser, xpAmount } = req.body;
+    if (!owner || !repo || !prNumber || !targetUser || !xpAmount) {
+        res.status(400).json({ error: "Missing required fields" });
+        return;
+    }
+    console.log(`🎉 Adding ${xpAmount} XP to @${targetUser}`);
+    const commentBody = `Added ${xpAmount} XP to @${targetUser}`;
+    try {
+        const comment = await (0, githubComment_1.postPRFormComment)(owner, repo, prNumber, commentBody);
+        res.status(201).json({ success: true, comment_url: comment.html_url });
+    }
+    catch (err) {
+        console.error("❌ Failed to post bonus XP comment:", err);
+        res.status(502).json({ error: err.message ?? "GitHub request failed" });
+    }
+};
+exports.AddbonusXp = AddbonusXp;
 //# sourceMappingURL=commentController.js.map
