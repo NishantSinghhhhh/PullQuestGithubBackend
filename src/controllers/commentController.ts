@@ -176,9 +176,10 @@ export const commentOnPrReview: RequestHandler = async (req, res) => {
   }
 };
 
+
 export const formComment: RequestHandler = async (req, res) => {
-  console.log("📥 Incoming XP request payload:", JSON.stringify(req.body, null, 2));
-  
+  console.log("📥 Incoming XP-form payload:", JSON.stringify(req.body, null, 2));
+
   const { owner, repo, prNumber, commenter } = req.body;
 
   if (!owner || !repo || !prNumber || !commenter) {
@@ -186,23 +187,50 @@ export const formComment: RequestHandler = async (req, res) => {
     return;
   }
 
-  console.log(`🎉 Yes! Providing XP form for @${commenter}`);
+  console.log(`🎉 Creating contributor-rating form for @${commenter}`);
 
-  const commentBody = `🎉 XP calculation complete for @${commenter}!
+  /* ────────────────────────────────────────────────────────────────
+     📝 The PR comment the bot will post
+     ──────────────────────────────────────────────────────────────── */
+  const commentBody = `
+  Hi @${commenter}!  
+  Below is your **Contributor Rating form** for PR **#${prNumber}**.  
+  Please edit the table with numbers \`1–5\` (5 = excellent) and add comments if needed. When you’re done, hit **Save**.
 
-  📊 Your contributor XP details:
-  • Pull Request: #${prNumber}
-  • XP Earned: 150 🪙
-  • Total XP: 2,450 🪙
-  • Rank: Contributor Level 5
+  | Category | Rating (1-5) | Notes |
+  |----------|--------------|-------|
+  | **Code quality** |  |  |
+  | **Test coverage** |  |  |
+  | **Readability & naming** |  |  |
+  | **Documentation & comments** |  |  |
+  | **Performance / efficiency** |  |  |
 
-  Keep up the great work! 🚀`;
+  ---
+
+  ### ✨ Special points already spotted
+  * Codebase is **well-documented** – great use of JSDoc blocks.
+  * Commit messages are clear and follow *Conventional Commits*.
+  * Uses modern TypeScript features effectively.
+
+  ---
+
+  ### 📊 XP snapshot
+  * **XP earned for this PR:** **150 🪙**
+  * **Total XP:** **2 450 🪙**  (Level 5 Contributor)
+
+  > **Maintainers:** to award bonus XP, add a new PR comment like  
+  > \`@pullquestai add 50 xp\`  (you may replace **50** with any whole-number value).
+
+  Keep up the awesome work 🚀
+  `;
 
   try {
     const comment = await postPRFormComment(owner, repo, prNumber, commentBody);
     res.status(201).json({ success: true, comment_url: comment.html_url });
   } catch (err: any) {
-    console.error("❌ Failed to post XP comment:", err);
-    res.status(502).json({ error: err.message ?? "GitHub request failed" });
+    console.error("❌ Failed to post contributor-rating form:", err);
+    res
+      .status(502)
+      .json({ error: err.message ?? "GitHub request failed" });
   }
 };
