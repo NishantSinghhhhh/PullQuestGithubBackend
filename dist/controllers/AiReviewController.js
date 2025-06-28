@@ -7,7 +7,8 @@ exports.handleCodeReview = void 0;
 const util_1 = __importDefault(require("util"));
 const githubcodereview_1 = require("../utils/githubcodereview");
 const githubComment_1 = require("../utils/githubComment");
-const githubCommit_1 = require("../utils/githubCommit"); // keeps the existing helper
+// import { fetchHeadCommitOfPR } from "../utils/githubCommit";   // keeps the existing helper
+const githubComment_2 = require("../utils/githubComment");
 /* ──────────────────────────────────────────────────────────────
    LOCAL helper — translate an absolute file/line → (hunk-relative
    line, side) so GitHub accepts the review comment.
@@ -123,14 +124,13 @@ const handleCodeReview = async (req, res) => {
         return;
     }
     /* 3️⃣  Resolve commit SHA */
-    let sha = commitId || req.header("x-github-sha");
+    let sha = commitId;
     if (!sha) {
         try {
-            const { headSha } = await (0, githubCommit_1.fetchHeadCommitOfPR)(owner, repo, prNumber);
-            sha = headSha;
+            sha = await (0, githubComment_2.getCorrectCommitSha)(owner, repo, prNumber);
         }
         catch (err) {
-            console.error("❌ Failed to fetch head commit:", err);
+            console.error("❌ Failed to fetch correct commit SHA:", err);
             res.status(502).json({ error: "Unable to resolve HEAD commit SHA" });
             return;
         }

@@ -257,3 +257,32 @@ export interface ReviewCommentResponse {
     
     return prData;
   }
+  // In src/utils/githubComment.ts (or wherever your GitHub functions are)
+
+export async function getCorrectCommitSha(owner: string, repo: string, prNumber: number): Promise<string> {
+  const token = process.env.GITHUB_COMMENT_TOKEN;
+  
+  if (!token) {
+    throw new Error("GITHUB_COMMENT_TOKEN environment variable is not set");
+  }
+  
+  const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
+  
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+    },
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch PR: ${response.status} ${response.statusText}`);
+  }
+  
+  const prData = await response.json();
+  
+  const headSha = prData.head.sha;
+  console.log(`🔍 Using HEAD SHA from PR API: ${headSha}`);
+  
+  return headSha;
+}

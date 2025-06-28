@@ -7,6 +7,7 @@ import { ingestStakedIssue } from "../ingester/issueIngester";
 import { fetchPRDetails } from "../utils/githubComment";
 import { ingestMergedPR } from "../ingester/mergedPRIngester";
 
+
 export const commentOnIssue: RequestHandler = async (req, res) => {
   console.log("📥 Incoming payload:", JSON.stringify(req.body, null, 2));
 

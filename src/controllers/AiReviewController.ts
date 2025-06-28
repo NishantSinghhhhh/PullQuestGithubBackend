@@ -3,8 +3,8 @@ import { Request, Response, RequestHandler } from "express";
 import util from "util";
 import { reviewCodeForGitHub } from "../utils/githubcodereview";
 import { postPullRequestReviewComment } from "../utils/githubComment";
-import { fetchHeadCommitOfPR } from "../utils/githubCommit";   // keeps the existing helper
-
+// import { fetchHeadCommitOfPR } from "../utils/githubCommit";   // keeps the existing helper
+import { getCorrectCommitSha } from "../utils/githubComment";
 /* ──────────────────────────────────────────────────────────────
    LOCAL helper — translate an absolute file/line → (hunk-relative
    line, side) so GitHub accepts the review comment.
@@ -154,19 +154,17 @@ export const handleCodeReview: RequestHandler = async (req, res) => {
     res.status(502).json({ error: "Invalid JSON from AI" });
     return;
   }
-
-  /* 3️⃣  Resolve commit SHA */
-  let sha = commitId || req.header("x-github-sha");
-  if (!sha) {
-    try {
-      const { headSha } = await fetchHeadCommitOfPR(owner!, repo!, prNumber!);
-      sha = headSha;
-    } catch (err) {
-      console.error("❌ Failed to fetch head commit:", err);
-      res.status(502).json({ error: "Unable to resolve HEAD commit SHA" });
-      return;
-    }
+/* 3️⃣  Resolve commit SHA */
+let sha = commitId;
+if (!sha) {
+  try {
+    sha = await getCorrectCommitSha(owner!, repo!, prNumber!);
+  } catch (err) {
+    console.error("❌ Failed to fetch correct commit SHA:", err);
+    res.status(502).json({ error: "Unable to resolve HEAD commit SHA" });
+    return;
   }
+}
   console.log(`📝 Using commit SHA for review comments: ${sha}`);
 
   /* 4️⃣  Post inline comments */
@@ -189,7 +187,8 @@ export const handleCodeReview: RequestHandler = async (req, res) => {
         s.file,
         rel.lineInHunk,
         rel.side,
-        s.comment
+        s.comment,
+     // Add the diff parameter
       );
       postedUrls.push(c.html_url || c.url);
     } catch (err: any) {
