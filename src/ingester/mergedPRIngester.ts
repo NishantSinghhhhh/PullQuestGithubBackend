@@ -171,37 +171,3 @@ export async function ingestMergedPR(params: MergedPRIngestionParams) {
     }
   }
   
-  /**
-   * Fetch PR details from GitHub API
-   */
-  export async function fetchPRDetails(owner: string, repo: string, prNumber: number): Promise<GitHubPRData> {
-    const token = process.env.GITHUB_API_TOKEN;
-    
-    if (!token) {
-      throw new Error("GITHUB_API_TOKEN environment variable is not set");
-    }
-    
-    const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
-    
-    console.log(`🔍 Fetching PR data from: ${url}`);
-    
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github.v3+json',
-        'User-Agent': 'PullQuestAI-Bot',
-      },
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ GitHub API error: ${response.status} ${response.statusText}`);
-      console.error(`❌ Response: ${errorText}`);
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-    
-    const prData = await response.json();
-    console.log(`✅ Successfully fetched PR #${prData.number}: ${prData.title}`);
-    
-    return prData;
-  }
