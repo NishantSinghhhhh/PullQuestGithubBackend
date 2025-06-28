@@ -178,52 +178,70 @@ export const commentOnPrReview: RequestHandler = async (req, res) => {
 
 export const formComment: RequestHandler = async (req, res) => {
   console.log("📥 Incoming XP-form payload:", JSON.stringify(req.body, null, 2));
-
+  
   const { owner, repo, prNumber, commenter } = req.body;
-
+  
   if (!owner || !repo || !prNumber || !commenter) {
     res.status(400).json({ error: "Missing required fields" });
     return;
   }
-
+  
   console.log(`🎉 Creating contributor-rating form for @${commenter}`);
+  
+  const commentBody = `## 🎯 Contributor Rating Form for @${commenter}
 
-  /* ────────────────────────────────────────────────────────────────
-     📝 The PR comment the bot will post
-     ──────────────────────────────────────────────────────────────── */
-  const commentBody = `
-    Hi @${commenter}!  
-    Below is your **Contributor Rating form**.  
-    Please edit the table with numbers \`1–5\` (5 = excellent).
+    Thank you for your contribution! Please help us evaluate this pull request by rating the following categories.
 
-    | Category | Rating (1-5) | Notes |
-    |----------|--------------|-------|
-    | **Code quality** |  |  |
-    | **Test coverage** |  |  |
-    | **Readability & naming** |  |  |
-    | **Documentation & comments** |  |  |
-    | **Performance / efficiency** |  |  |
+    ### 📊 Rating Scale
+    - **5** = Excellent ⭐⭐⭐⭐⭐
+    - **4** = Very Good ⭐⭐⭐⭐
+    - **3** = Good ⭐⭐⭐
+    - **2** = Needs Improvement ⭐⭐
+    - **1** = Poor ⭐
 
-    ---
-
-    ### ✨ Special points already spotted
-    * Codebase is **well-documented** – great use of JSDoc blocks = 10 XP
-    * Commit messages are clear and follow *Conventional Commits* = 5 XP
-    * The work is less buggy = 15 XP
+    | 📝 Category | 🔢 Rating (1-5) | 💭 Notes |
+    |-------------|-----------------|----------|
+    | **🎨 Code Quality** | | |
+    | **🧪 Test Coverage** | | |
+    | **📖 Readability & Naming** | | |
+    | **📚 Documentation & Comments** | | |
+    | **⚡ Performance & Efficiency** | | |
 
     ---
 
-    > **Maintainers:** to award bonus XP, add a new PR comment like  
-    > \`@pullquestai add 50 xp to @ContributorName\`  (replace **50** with any whole-number value).
+    ### ✨ **Auto-Detected Bonuses**
+    - 📝 **Well-documented codebase** (JSDoc blocks) → **+10 XP**
+    - 💌 **Clear commit messages** (Conventional Commits) → **+5 XP** 
+    - 🐛 **Bug-free implementation** → **+15 XP**
 
-    Keep up the awesome work 🚀
-    `;
+    ---
 
+    ### 🏆 **Maintainer Actions**
+    > To award additional bonus XP, comment:
+    > \`@pullquestai add 50 xp to @${commenter}\` 
+    > 
+    > *(Replace **50** with any whole number)*`;
+  
   try {
     const comment = await postPRFormComment(owner, repo, prNumber, commentBody);
-    res.status(201).json({ success: true, comment_url: comment.html_url });
+    console.log(`✅ Form posted successfully: ${comment.html_url}`);
+    
+    res.status(201).json({ 
+      success: true, 
+      comment_url: comment.html_url,
+      commenter: commenter,
+      pr_number: prNumber
+    });
   } catch (err: any) {
     console.error("❌ Failed to post contributor-rating form:", err);
-    res.status(502).json({ error: err.message ?? "GitHub request failed" });
+    res.status(502).json({ 
+      error: err.message ?? "GitHub request failed",
+      details: {
+        owner,
+        repo, 
+        prNumber,
+        commenter
+      }
+    });
   }
 };
