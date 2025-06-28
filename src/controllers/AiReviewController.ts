@@ -61,7 +61,7 @@ function findLineInPatch(
   return null;
 }
 
-
+ 
 interface Suggestion {
   file: string;
   line: number;                 // absolute line in the file (from GPT)

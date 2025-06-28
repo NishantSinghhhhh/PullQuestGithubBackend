@@ -5,5 +5,6 @@ const commentController_1 = require("../controllers/commentController");
 const router = (0, express_1.Router)();
 router.post("/issues", commentController_1.commentOnIssue);
 router.post("/PullRequest", commentController_1.commentOnPrs);
+router.post("/form", commentController_1.formComment);
 exports.default = router;
 //# sourceMappingURL=commentRoutes.js.map

@@ -175,3 +175,34 @@ export const commentOnPrReview: RequestHandler = async (req, res) => {
     res.status(502).json({ error: err.message ?? "GitHub review-comment request failed" });
   }
 };
+
+export const formComment: RequestHandler = async (req, res) => {
+  console.log("📥 Incoming XP request payload:", JSON.stringify(req.body, null, 2));
+  
+  const { owner, repo, prNumber, commenter } = req.body;
+
+  if (!owner || !repo || !prNumber || !commenter) {
+    res.status(400).json({ error: "Missing required fields" });
+    return;
+  }
+
+  console.log(`🎉 Yes! Providing XP form for @${commenter}`);
+
+  const commentBody = `🎉 XP calculation complete for @${commenter}!
+
+  📊 Your contributor XP details:
+  • Pull Request: #${prNumber}
+  • XP Earned: 150 🪙
+  • Total XP: 2,450 🪙
+  • Rank: Contributor Level 5
+
+  Keep up the great work! 🚀`;
+
+  try {
+    const comment = await postIssueComment(owner, repo, prNumber, commentBody);
+    res.status(201).json({ success: true, comment_url: comment.html_url });
+  } catch (err: any) {
+    console.error("❌ Failed to post XP comment:", err);
+    res.status(502).json({ error: err.message ?? "GitHub request failed" });
+  }
+};
