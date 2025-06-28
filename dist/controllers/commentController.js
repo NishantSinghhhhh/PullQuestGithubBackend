@@ -8,6 +8,8 @@ const githubComment_1 = require("../utils/githubComment");
 const User_1 = __importDefault(require("../model/User"));
 const githubComment_2 = require("../utils/githubComment");
 const issueIngester_1 = require("../ingester/issueIngester");
+const githubComment_3 = require("../utils/githubComment");
+const mergedPRIngester_1 = require("../ingester/mergedPRIngester");
 const commentOnIssue = async (req, res) => {
     console.log("📥 Incoming payload:", JSON.stringify(req.body, null, 2));
     const { owner, // "PullQuest-Test"
@@ -113,10 +115,15 @@ const commentOnPrs = async (req, res) => {
         const userCoins = user.coins;
         if (userCoins >= stakeAmt) {
             console.log(`✅ ${author} has enough coins (${userCoins}) for stake (${stakeAmt})`);
-            // 💰 ACTUALLY DEDUCT THE COINS
+            // 💰 ACTUALLY DEDUCT THE COINS AND AWARD XP
             user.coins -= stakeAmt;
+            // 🎉 AWARD XP FOR OPENING PR WITH STAKE
+            const xpReward = 10; // Base XP for opening a staked PR
+            user.xp = (user.xp || 0) + xpReward;
             await user.save();
             console.log(`💰 Deducted ${stakeAmt} coins. New balance: ${user.coins}`);
+            console.log(`🎉 Awarded ${xpReward} XP. New XP: ${user.xp}`);
+            console.log(`🏆 Current rank: ${user.rank}`);
             // 🔍 FETCH ISSUE DATA AND INGEST TO STAKED ISSUES DB
             if (linkedIssueNumber) {
                 try {
@@ -143,7 +150,9 @@ const commentOnPrs = async (req, res) => {
 
 • Linked issue: **${issueRef}**
 • 🪙 **Stake deducted:** ${stakeAmt} coins.
-• 💰 **Remaining balance:** ${user.coins} coins.`;
+• 💰 **Remaining balance:** ${user.coins} coins.
+• 🎉 **XP awarded:** +${xpReward} XP (Total: ${user.xp})
+• 🏆 **Current rank:** ${user.rank}`;
         }
         else {
             console.log(`❌ ${author} doesn't have enough coins (${userCoins}) for stake (${stakeAmt})`);
@@ -269,20 +278,99 @@ Keep up the awesome work 🚀
 exports.formComment = formComment;
 const AddbonusXp = async (req, res) => {
     console.log("📥 Incoming bonus XP payload:", JSON.stringify(req.body, null, 2));
-    const { owner, repo, prNumber, targetUser, xpAmount } = req.body;
+    const { owner, repo, prNumber, targetUser, xpAmount, requester } = req.body;
     if (!owner || !repo || !prNumber || !targetUser || !xpAmount) {
         res.status(400).json({ error: "Missing required fields" });
         return;
     }
     console.log(`🎉 Adding ${xpAmount} XP to @${targetUser}`);
-    const commentBody = `Added ${xpAmount} XP to @${targetUser}`;
     try {
+        /* ── 1. Find the target user in database ─────────────────────── */
+        const user = await User_1.default.findOne({
+            githubUsername: targetUser,
+            role: "contributor"
+        });
+        if (!user) {
+            console.log(`❌ User not found: ${targetUser}`);
+            const commentBody = `❌ Error: User @${targetUser} not found in our system.`;
+            const comment = await (0, githubComment_1.postPRFormComment)(owner, repo, prNumber, commentBody);
+            res.status(404).json({
+                error: "User not found",
+                comment_url: comment.html_url
+            });
+            return;
+        }
+        console.log(`✅ Found user: ${targetUser}`);
+        /* ── 2. Add XP to user profile ──────────────────────────────── */
+        const oldXp = user.xp || 0;
+        const oldRank = user.rank;
+        user.xp = oldXp + Number(xpAmount);
+        user.lastLogin = new Date();
+        await user.save();
+        console.log(`💰 XP: ${oldXp} → ${user.xp} (+${xpAmount})`);
+        /* ── 3. Fetch PR details and ingest to MergedPR collection ──── */
+        let ingestionResult = null;
+        try {
+            const prData = await (0, githubComment_3.fetchPRDetails)(owner, repo, prNumber);
+            ingestionResult = await (0, mergedPRIngester_1.ingestMergedPR)({
+                prData: prData,
+                awardedUser: user,
+                bonusXpAmount: Number(xpAmount),
+                awardedBy: requester || "maintainer",
+                owner: owner,
+                repo: repo
+            });
+            console.log(`✅ PR ingested: ${ingestionResult.message}`);
+        }
+        catch (error) {
+            console.error("❌ Failed to ingest PR data:", error);
+        }
+        /* ── 4. Post enhanced success comment ───────────────────────── */
+        const rankChange = oldRank !== user.rank ? ` → **${user.rank}**` : "";
+        const ingestionStatus = ingestionResult
+            ? `\n• 📊 **PR Data**: Successfully recorded in merge history`
+            : `\n• ⚠️ **PR Data**: Could not record merge history`;
+        const commentBody = `🎉 **Bonus XP Awarded Successfully!**
+
+    ✅ Added **${xpAmount} XP** to @${targetUser}
+
+    📊 **Updated User Stats:**
+    • **XP**: ${oldXp} → **${user.xp}** (+${xpAmount})
+    • **Rank**: ${oldRank}${rankChange}
+    • **Total Coins**: ${user.coins}${ingestionStatus}
+
+    🏆 **PR Summary:**
+    • **Pull Request**: #${prNumber}
+    • **Repository**: ${owner}/${repo}
+    • **Awarded by**: ${requester || 'maintainer'}
+
+    Keep up the excellent work! 🚀`;
         const comment = await (0, githubComment_1.postPRFormComment)(owner, repo, prNumber, commentBody);
-        res.status(201).json({ success: true, comment_url: comment.html_url });
+        res.status(201).json({
+            success: true,
+            comment_url: comment.html_url,
+            user_stats: {
+                username: user.githubUsername,
+                old_xp: oldXp,
+                new_xp: user.xp,
+                xp_added: Number(xpAmount),
+                old_rank: oldRank,
+                new_rank: user.rank,
+                coins: user.coins
+            },
+            pr_ingestion: {
+                success: !!ingestionResult,
+                message: ingestionResult?.message || "Failed to ingest PR data",
+                database_id: ingestionResult?.mergedPRId || null,
+                is_update: ingestionResult?.isUpdate || false
+            }
+        });
     }
     catch (err) {
-        console.error("❌ Failed to post bonus XP comment:", err);
-        res.status(502).json({ error: err.message ?? "GitHub request failed" });
+        console.error("❌ Failed to process bonus XP:", err);
+        res.status(502).json({
+            error: err.message ?? "Failed to process bonus XP"
+        });
     }
 };
 exports.AddbonusXp = AddbonusXp;

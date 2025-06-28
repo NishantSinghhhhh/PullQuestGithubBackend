@@ -6,6 +6,7 @@ exports.postPullRequestComment = postPullRequestComment;
 exports.postPullRequestReviewComment = postPullRequestReviewComment;
 exports.postPRFormComment = postPRFormComment;
 exports.fetchCompleteIssueData = fetchCompleteIssueData;
+exports.fetchPRDetails = fetchPRDetails;
 async function postIssueComment(owner, repo, issueNumber, commentBody) {
     const token = process.env.GITHUB_COMMENT_TOKEN;
     const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments`;
@@ -117,5 +118,28 @@ async function fetchCompleteIssueData(owner, repo, issueNumber) {
         throw new Error(`GitHub API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
     return await response.json();
+}
+async function fetchPRDetails(owner, repo, prNumber) {
+    const token = process.env.GITHUB_API_TOKEN;
+    if (!token) {
+        throw new Error("GITHUB_API_TOKEN environment variable is not set");
+    }
+    const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`;
+    console.log(`🔍 Fetching PR data from: ${url}`);
+    const response = await fetch(url, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+            'User-Agent': 'PullQuestAI-Bot',
+        },
+    });
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ GitHub API error: ${response.status} ${response.statusText}`);
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    const prData = await response.json();
+    console.log(`✅ Successfully fetched PR #${prData.number}: ${prData.title}`);
+    return prData;
 }
 //# sourceMappingURL=githubComment.js.map
