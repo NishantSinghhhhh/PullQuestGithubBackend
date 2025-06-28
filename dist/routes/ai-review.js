@@ -10,7 +10,6 @@ const router = (0, express_1.Router)();
 router.post('/ai-review', AiReviewController_1.handleCodeReview);
 // New comprehensive issue analysis route
 router.post('/analyze-issue', LabelController_1.handleIssueAnalysis);
+router.post('/generate-pr-summary', LabelController_1.handleIssueAnalysis);
 exports.default = router;
-// Or if you're adding directly to app.ts:
-// app.post('/api/github/analyze-issue', handleIssueAnalysis);
 //# sourceMappingURL=ai-review.js.map

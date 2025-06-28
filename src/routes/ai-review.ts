@@ -13,7 +13,7 @@ router.post('/ai-review', handleCodeReview);
 // New comprehensive issue analysis route
 router.post('/analyze-issue', handleIssueAnalysis);
 
+router.post('/generate-pr-summary', handleIssueAnalysis);
+
 export default router;
 
-// Or if you're adding directly to app.ts:
-// app.post('/api/github/analyze-issue', handleIssueAnalysis);
