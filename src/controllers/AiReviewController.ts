@@ -5,11 +5,13 @@ import { reviewCodeForGitHub } from "../utils/githubcodereview";
 import { postPullRequestReviewComment } from "../utils/githubComment";
 // import { fetchHeadCommitOfPR } from "../utils/githubCommit";   // keeps the existing helper
 import { getCorrectCommitSha } from "../utils/githubComment";
-/* ──────────────────────────────────────────────────────────────
-   LOCAL helper — translate an absolute file/line → (hunk-relative
-   line, side) so GitHub accepts the review comment.
-   ──────────────────────────────────────────────────────────── */
 
+interface ReviewSuggestion {
+  file: string;
+  line: number;
+  side: "LEFT" | "RIGHT";
+  comment: string;
+}
    function findLineInPatch(
     unifiedDiff: string,
     wantedPath: string,
@@ -102,105 +104,101 @@ interface Suggestion {
   side: "LEFT" | "RIGHT";       // GPT’s guess – we’ll recompute anyway
   comment: string;
 }
-
+// Replace your entire handleCodeReview function with this:
 export const handleCodeReview: RequestHandler = async (req, res) => {
-  /* ───────────── Verbose payload logging ───────────── */
-  console.log("🟢 RAW req.body object ➜");
-  console.dir(req.body, { depth: null, colors: false });
+  console.log("📥 Incoming AI review request");
 
-  console.log("🟢 req.body JSON.stringify ➜");
-  console.log(JSON.stringify(req.body));
-
-  console.log("🟢 util.inspect(req.body, {depth:null}) ➜");
-  console.log(util.inspect(req.body, { depth: null, maxArrayLength: null }));
-  /* ─────────────────────────────────────────────────── */
-
-  const {
-    owner,
-    repo,
-    prNumber,
-    diff,
-    commitId
-  }: {
-    owner?: string;
-    repo?: string;
-    prNumber?: number;
-    diff?: string;
-    commitId?: string;
-  } = req.body;
+  const { owner, repo, prNumber, diff } = req.body;
 
   if (!owner || !repo || !prNumber || !diff) {
     res.status(400).json({ error: "owner, repo, prNumber and diff are required" });
     return;
   }
 
-  /* 1️⃣  Ask OpenAI for suggestions */
-  let rawReview: string;
   try {
+    /* 1️⃣  Get AI suggestions */
     const { review } = await reviewCodeForGitHub({ diff });
-    rawReview = review;
+    const suggestions = JSON.parse(review);
+    console.log(`🤖 AI generated ${suggestions.length} suggestions`);
+
+    if (suggestions.length === 0) {
+      console.log("✅ No suggestions from AI, skipping comment");
+      res.status(200).json({ message: "No suggestions to post" });
+      return;
+    }
+
+    /* 2️⃣  Format as single comprehensive comment */
+
+    const reviewBody: string = `## 🤖 AI Code Review
+
+  I found **${suggestions.length}** suggestion${suggestions.length > 1 ? 's' : ''} for improvement:
+
+  ---
+
+  ${(suggestions as ReviewSuggestion[]).map((s: ReviewSuggestion, i: number): string => `**${i + 1}. \`${s.file}:${s.line}\`**  
+  ${s.comment}
+
+  `).join('\n---\n\n')}
+
+  ---
+
+  *This review was generated automatically by AI. Please review the suggestions carefully before implementing.*`;
+
+    /* 3️⃣  Post simple PR comment using Issues API */
+    const comment = await postSimplePRComment(owner, repo, prNumber, reviewBody);
+    
+    console.log(`✅ Posted AI review comment: ${comment.html_url}`);
+    
+    res.status(201).json({
+      success: true,
+      comment_url: comment.html_url,
+      suggestions_count: suggestions.length
+    });
+
   } catch (err: any) {
     console.error("❌ AI review failed:", err);
-    res.status(502).json({ error: "AI review failed" });
-    return;
+    res.status(502).json({ error: "AI review failed: " + err.message });
   }
-
-  /* 2️⃣  Parse AI JSON */
-  let suggestions: Suggestion[];
-  try {
-    suggestions = JSON.parse(rawReview);
-  } catch (err: any) {
-    console.error("❌ Invalid JSON from AI:", err);
-    res.status(502).json({ error: "Invalid JSON from AI" });
-    return;
-  }
-/* 3️⃣  Resolve commit SHA */
-let sha = commitId;
-if (!sha) {
-  try {
-    sha = await getCorrectCommitSha(owner!, repo!, prNumber!);
-  } catch (err) {
-    console.error("❌ Failed to fetch correct commit SHA:", err);
-    res.status(502).json({ error: "Unable to resolve HEAD commit SHA" });
-    return;
-  }
-}
-  console.log(`📝 Using commit SHA for review comments: ${sha}`);
-
-  /* 4️⃣  Post inline comments */
-  const postedUrls: string[] = [];
-  const skipped: Suggestion[] = [];
-
-  for (const s of suggestions) {
-    const rel = findLineInPatch(diff, s.file, s.line);
-    if (!rel) {
-      console.warn(`⚠️  ${s.file}:${s.line} not found in diff – skipping`);
-      skipped.push(s);
-      continue;
-    }
-    try {
-      const c = await postPullRequestReviewComment(
-        owner!,
-        repo!,
-        prNumber!,
-        sha,
-        s.file,
-        s.line,  // ✅ Use the AI's line number
-        s.side,
-        s.comment,
-        diff     // ✅ Add the full diff
-      );
-      postedUrls.push(c.html_url || c.url);
-    } catch (err: any) {
-      console.error(`❌ Failed to post comment on ${s.file}:${s.line}`, err);
-    }
-  }
-
-  /* 5️⃣  Respond to caller */
-  res.status(201).json({
-    posted: postedUrls.length,
-    urls: postedUrls,
-    skipped,
-    commitIdUsed: sha
-  });
 };
+
+// Simple function to post PR comment (uses Issues API which works for PRs)
+async function postSimplePRComment(
+  owner: string,
+  repo: string,
+  pullNumber: number,
+  body: string
+): Promise<{ html_url: string }> {
+  const token = process.env.GITHUB_COMMENT_TOKEN;
+  
+  if (!token) {
+    throw new Error("GITHUB_COMMENT_TOKEN environment variable is not set");
+  }
+
+  // Use Issues API - it works for PRs and is much simpler
+  const url = `https://api.github.com/repos/${owner}/${repo}/issues/${pullNumber}/comments`;
+
+  console.log(`📤 Posting comment to: ${url}`);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github.v3+json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ body }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error(`❌ GitHub API Error:`, {
+      status: response.status,
+      statusText: response.statusText,
+      response: text
+    });
+    throw new Error(`GitHub API error: ${response.status} ${response.statusText} - ${text}`);
+  }
+
+  const result = await response.json();
+  return result;
+}
