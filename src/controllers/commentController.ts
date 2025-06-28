@@ -1,6 +1,6 @@
 // src/controllers/commentController.ts
 import { Request, Response, RequestHandler } from "express";
-import { postIssueComment, postPullRequestReviewComment } from "../utils/githubComment";
+import { postIssueComment, postPullRequestReviewComment, postPRFormComment } from "../utils/githubComment";
 
 export const commentOnIssue: RequestHandler = async (req, res) => {
   console.log("📥 Incoming payload:", JSON.stringify(req.body, null, 2));
@@ -199,7 +199,7 @@ export const formComment: RequestHandler = async (req, res) => {
   Keep up the great work! 🚀`;
 
   try {
-    const comment = await postIssueComment(owner, repo, prNumber, commentBody);
+    const comment = await postPRFormComment(owner, repo, prNumber, commentBody);
     res.status(201).json({ success: true, comment_url: comment.html_url });
   } catch (err: any) {
     console.error("❌ Failed to post XP comment:", err);

@@ -132,7 +132,7 @@ const formComment = async (req, res) => {
 
   Keep up the great work! 🚀`;
     try {
-        const comment = await (0, githubComment_1.postIssueComment)(owner, repo, prNumber, commentBody);
+        const comment = await (0, githubComment_1.postPRFormComment)(owner, repo, prNumber, commentBody);
         res.status(201).json({ success: true, comment_url: comment.html_url });
     }
     catch (err) {

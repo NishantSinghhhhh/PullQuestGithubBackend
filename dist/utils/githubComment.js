@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.postIssueComment = postIssueComment;
 exports.postPullRequestComment = postPullRequestComment;
 exports.postPullRequestReviewComment = postPullRequestReviewComment;
+exports.postPRFormComment = postPRFormComment;
 async function postIssueComment(owner, repo, issueNumber, commentBody) {
     const token = process.env.GITHUB_COMMENT_TOKEN;
     const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments`;
@@ -67,5 +68,34 @@ async function postPullRequestReviewComment(owner, repo, pullNumber, commitId, p
         throw new Error(`GitHub API error posting review comment: ${res.status} ${res.statusText} — ${text}`);
     }
     return (await res.json());
+}
+async function postPRFormComment(owner, repo, issueNumber, commentBody) {
+    const token = process.env.GITHUB_COMMENT_TOKEN;
+    if (!token) {
+        throw new Error("GITHUB_COMMENT_TOKEN environment variable is not set");
+    }
+    const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments`;
+    console.log(`🔗 Posting to: ${url}`);
+    console.log(`🔑 Token exists: ${!!token}`);
+    console.log(`📝 Comment body length: ${commentBody.length}`);
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ body: commentBody }),
+    });
+    console.log(`📊 Response status: ${res.status}`);
+    if (!res.ok) {
+        const text = await res.text();
+        console.error(`❌ GitHub API error: ${res.status} ${res.statusText}`);
+        console.error(`❌ Response body: ${text}`);
+        throw new Error(`GitHub API error posting comment: ${res.status} ${res.statusText} — ${text}`);
+    }
+    const result = await res.json();
+    console.log(`✅ Comment posted successfully: ${result.html_url}`);
+    return result;
 }
 //# sourceMappingURL=githubComment.js.map
