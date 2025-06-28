@@ -122,46 +122,57 @@ const formComment = async (req, res) => {
         return;
     }
     console.log(`🎉 Creating contributor-rating form for @${commenter}`);
-    const commentBody = `## 🎯 Contributor Rating Form for @${commenter}
+    /* ───────────────────────────────────────────────────────────────
+       Redesigned markdown comment (looks close to your screenshot)
+       ─────────────────────────────────────────────────────────────── */
+    const commentBody = `
+### 🟢 Merge Feedback  
+*Rate this pull request before merging to help improve code quality.*
 
-    Thank you for your contribution! Please help us evaluate this pull request by rating the following categories.
+---
 
-    ### 📊 Rating Scale
-    - **5** = Excellent ⭐⭐⭐⭐⭐
-    - **4** = Very Good ⭐⭐⭐⭐
-    - **3** = Good ⭐⭐⭐
-    - **2** = Needs Improvement ⭐⭐
-    - **1** = Poor ⭐
+#### 🎯 Current Score  
+\`0 / 25 points (0 %)\`
 
-    | 📝 Category | 🔢 Rating (1-5) | 💭 Notes |
-    |-------------|-----------------|----------|
-    | **🎨 Code Quality** | | |
-    | **🧪 Test Coverage** | | |
-    | **📖 Readability & Naming** | | |
-    | **📚 Documentation & Comments** | | |
-    | **⚡ Performance & Efficiency** | | |
+> Fill out the sliders / table below – the score will update automatically once you save the comment.
 
-    ---
+---
 
-    ### ✨ **Auto-Detected Bonuses**
-    - 📝 **Well-documented codebase** (JSDoc blocks) → **+10 XP**
-    - 💌 **Clear commit messages** (Conventional Commits) → **+5 XP** 
-    - 🐛 **Bug-free implementation** → **+15 XP**
+## ⭐ Quality Assessment  
+| Category | Poor&nbsp;⬜ | Average&nbsp;⬜ | Good&nbsp;⬜ | Excellent&nbsp;⬜ | Score&nbsp;/5 |
+|----------|:-----------:|:-------------:|:-----------:|:----------------:|:-------------:|
+| **Code Quality & Standards** | ○ | ○ | ○ | ○ | &nbsp; |
+| **Documentation & Comments** | ○ | ○ | ○ | ○ | &nbsp; |
+| **Testing Coverage** | ○ | ○ | ○ | ○ | &nbsp; |
+| **Performance Impact** | ○ | ○ | ○ | ○ | &nbsp; |
+| **Security Considerations** | ○ | ○ | ○ | ○ | &nbsp; |
 
-    ---
+> &nbsp;⬜ = click to set your rating (1-5) and add notes if needed.
 
-    ### 🏆 **Maintainer Actions**
-    > To award additional bonus XP, comment:
-    > \`@pullquestai add 50 xp to @${commenter}\` 
-    > 
-    > *(Replace **50** with any whole number)*`;
+---
+
+## 🎁 Bonus Points *(optional)*
+| ✓ | Bonus | XP |
+|---|-------|----|
+| ☐ | Issue was bounty-backed | **+10** |
+| ☐ | PR merged within 24-48 hrs | **+5** |
+| ☐ | Contributor also reviewed other PRs | **+5** |
+| ☐ | Contributor added meaningful tests | **+10** |
+
+---
+
+> **Maintainers:** to award extra XP, create a new comment like  
+> \`@pullquestai add 50 xp to @${commenter}\`  (you can replace **50** with any whole-number).
+
+Keep up the awesome work 🚀
+`;
     try {
         const comment = await (0, githubComment_1.postPRFormComment)(owner, repo, prNumber, commentBody);
         console.log(`✅ Form posted successfully: ${comment.html_url}`);
         res.status(201).json({
             success: true,
             comment_url: comment.html_url,
-            commenter: commenter,
+            commenter,
             pr_number: prNumber
         });
     }
@@ -169,12 +180,7 @@ const formComment = async (req, res) => {
         console.error("❌ Failed to post contributor-rating form:", err);
         res.status(502).json({
             error: err.message ?? "GitHub request failed",
-            details: {
-                owner,
-                repo,
-                prNumber,
-                commenter
-            }
+            details: { owner, repo, prNumber, commenter }
         });
     }
 };
