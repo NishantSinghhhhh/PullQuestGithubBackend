@@ -126,41 +126,39 @@ const formComment = async (req, res) => {
        📝 The PR comment the bot will post
        ──────────────────────────────────────────────────────────────── */
     const commentBody = `
-  Hi @${commenter}!  
-  Below is your **Contributor Rating form** .  
-  Please edit the table with numbers \`1–5\` (5 = excellent) .
+    Hi @${commenter}!  
+    Below is your **Contributor Rating form**.  
+    Please edit the table with numbers \`1–5\` (5 = excellent).
 
-  | Category | Rating (1-5) | Notes |
-  |----------|--------------|-------|
-  | **Code quality** |  |  |
-  | **Test coverage** |  |  |
-  | **Readability & naming** |  |  |
-  | **Documentation & comments** |  |  |
-  | **Performance / efficiency** |  |  |
+    | Category | Rating (1-5) | Notes |
+    |----------|--------------|-------|
+    | **Code quality** |  |  |
+    | **Test coverage** |  |  |
+    | **Readability & naming** |  |  |
+    | **Documentation & comments** |  |  |
+    | **Performance / efficiency** |  |  |
 
-  ---
+    ---
 
-  ### ✨ Special points already spotted
-  * Codebase is **well-documented** – great use of JSDoc blocks = 10xp.
-  * Commit messages are clear and follow *Conventional Commits* = 5xp.
-  * The work is less buggy = 15xp .
+    ### ✨ Special points already spotted
+    * Codebase is **well-documented** – great use of JSDoc blocks = 10 XP
+    * Commit messages are clear and follow *Conventional Commits* = 5 XP
+    * The work is less buggy = 15 XP
 
-  ---
+    ---
 
-  > **Maintainers:** to award bonus XP, by adding a new PR comment like  
-  > \`@pullquestai add 50 xp to @Contributer Name\`  (you may replace **50** with any whole-number value).
+    > **Maintainers:** to award bonus XP, add a new PR comment like  
+    > \`@pullquestai add 50 xp to @ContributorName\`  (replace **50** with any whole-number value).
 
-  Keep up the awesome work 🚀
-  `;
+    Keep up the awesome work 🚀
+    `;
     try {
         const comment = await (0, githubComment_1.postPRFormComment)(owner, repo, prNumber, commentBody);
         res.status(201).json({ success: true, comment_url: comment.html_url });
     }
     catch (err) {
         console.error("❌ Failed to post contributor-rating form:", err);
-        res
-            .status(502)
-            .json({ error: err.message ?? "GitHub request failed" });
+        res.status(502).json({ error: err.message ?? "GitHub request failed" });
     }
 };
 exports.formComment = formComment;
