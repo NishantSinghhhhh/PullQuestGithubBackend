@@ -47,6 +47,7 @@ app.get("/health", (_req, res) => {
 app.use('/api/comment', commentRoutes_1.default);
 app.use('/api/chatgpt', GptRoute_1.default);
 app.use('/api', ai_review_1.default);
+app.use('/api/github', ai_review_1.default);
 // 404 handler (must come after all other routes)
 app.use((_req, res) => {
     res.status(404).json({
