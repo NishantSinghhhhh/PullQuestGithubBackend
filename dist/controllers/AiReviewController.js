@@ -14,47 +14,77 @@ const githubCommit_1 = require("../utils/githubCommit"); // keeps the existing h
    ──────────────────────────────────────────────────────────── */
 function findLineInPatch(unifiedDiff, wantedPath, wantedLine) {
     const lines = unifiedDiff.split("\n");
+    console.log(`🔍 Looking for ${wantedPath}:${wantedLine} in diff`);
     let currentPath = "";
     let oldLine = 0;
     let newLine = 0;
+    let hunkLinePosition = 0; // Position within the current hunk
+    let inCorrectFile = false;
     for (let i = 0; i < lines.length; i++) {
         const l = lines[i];
-        // file header
-        if (l.startsWith("+++ b/")) {
-            currentPath = l.slice(6).trim();
+        // File header detection
+        if (l.startsWith("diff --git")) {
+            // Reset for new file
+            currentPath = "";
             oldLine = 0;
             newLine = 0;
+            hunkLinePosition = 0;
+            inCorrectFile = false;
             continue;
         }
-        if (!currentPath || currentPath !== wantedPath)
+        // New file path
+        if (l.startsWith("+++ b/")) {
+            currentPath = l.slice(6).trim();
+            inCorrectFile = currentPath === wantedPath;
+            console.log(`📂 Found file: ${currentPath}, matches target: ${inCorrectFile}`);
             continue;
-        // hunk header e.g. @@ -1,3 +1,4 @@
+        }
+        // Skip if not in the target file
+        if (!inCorrectFile)
+            continue;
+        // Hunk header e.g. @@ -81,7 +81,7 @@
         if (l.startsWith("@@")) {
             const match = /@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(l);
             if (match) {
                 oldLine = Number(match[1]);
                 newLine = Number(match[2]);
+                hunkLinePosition = 0;
+                console.log(`📍 Hunk starts: old=${oldLine}, new=${newLine}`);
             }
             continue;
         }
-        // context / deletion / addition
+        // Content lines
         if (l.startsWith(" ")) {
+            // Context line - appears in both old and new
+            hunkLinePosition++;
+            if (oldLine === wantedLine) {
+                console.log(`✅ Found context line ${wantedLine} at hunk position ${hunkLinePosition}`);
+                return { lineInHunk: hunkLinePosition, side: "RIGHT" };
+            }
             oldLine++;
             newLine++;
         }
         else if (l.startsWith("-")) {
+            // Deleted line - only in old version
+            hunkLinePosition++;
             if (oldLine === wantedLine) {
-                return { lineInHunk: oldLine, side: "LEFT" };
+                console.log(`✅ Found deleted line ${wantedLine} at hunk position ${hunkLinePosition}`);
+                return { lineInHunk: hunkLinePosition, side: "LEFT" };
             }
             oldLine++;
         }
         else if (l.startsWith("+")) {
+            // Added line - only in new version
+            hunkLinePosition++;
             if (newLine === wantedLine) {
-                return { lineInHunk: newLine, side: "RIGHT" };
+                console.log(`✅ Found added line ${wantedLine} at hunk position ${hunkLinePosition}`);
+                return { lineInHunk: hunkLinePosition, side: "RIGHT" };
             }
             newLine++;
         }
     }
+    console.log(`❌ Line ${wantedLine} not found in ${wantedPath}`);
+    console.log(`📊 Final state: oldLine=${oldLine}, newLine=${newLine}`);
     return null;
 }
 const handleCodeReview = async (req, res) => {
