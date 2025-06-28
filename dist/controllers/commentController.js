@@ -330,35 +330,21 @@ const AddbonusXp = async (req, res) => {
         const ingestionStatus = ingestionResult
             ? `\n• 📊 **PR Data**: Successfully recorded in merge history`
             : `\n• ⚠️ **PR Data**: Could not record merge history`;
-        const commentBody = `## 🎉 Bonus XP Awarded Successfully!
+        const commentBody = `🎉 **Bonus XP Awarded Successfully!**
 
-      ---
-      
-      ✅ **Added** **${xpAmount} XP** to @${targetUser}
-      
-      ---
-      
-      ## 📊 Updated User Stats
-      
-      | Metric       | Before            | After             | Change         |
-      |--------------|-------------------|-------------------|----------------|
-      | **XP**       | ${oldXp}          | ${user.xp}        | +${xpAmount}   |
-      | **Rank**     | ${oldRank}        | **${user.rank}**${rankChange} |                |
-      | **Coins**    | —                 | ${user.coins}     |                |
-      
-      ${ingestionStatus}
-      
-      ---
-      
-      ## 🏆 PR Summary
-      
-      | Pull Request | Repository       | Awarded by       |
-      |--------------|------------------|------------------|
-      | **#${prNumber}** | **${owner}/${repo}** | **${requester || 'maintainer'}** |
-      
-      ---
-      
-      ⭐️ Keep up the excellent work! 🚀`;
+✅ Added **${xpAmount} XP** to @${targetUser}
+
+📊 **Updated User Stats:**
+• **XP**: ${oldXp} → **${user.xp}** (+${xpAmount})
+• **Rank**: ${oldRank}${rankChange}
+• **Total Coins**: ${user.coins}${ingestionStatus}
+
+🏆 **PR Summary:**
+• **Pull Request**: #${prNumber}
+• **Repository**: ${owner}/${repo}
+• **Awarded by**: ${requester || 'maintainer'}
+
+Keep up the excellent work! 🚀`;
         const comment = await (0, githubComment_1.postPRFormComment)(owner, repo, prNumber, commentBody);
         res.status(201).json({
             success: true,
