@@ -100,9 +100,9 @@ async function postPRFormComment(owner, repo, issueNumber, commentBody) {
     return result;
 }
 async function fetchCompleteIssueData(owner, repo, issueNumber) {
-    const token = process.env.GITHUB_API_TOKEN;
+    const token = process.env.GITHUB_TOKEN;
     if (!token) {
-        throw new Error("GITHUB_API_TOKEN environment variable is not set");
+        throw new Error("GITHUB_TOKEN environment variable is not set");
     }
     const url = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`;
     const response = await fetch(url, {
