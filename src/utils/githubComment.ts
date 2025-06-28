@@ -201,3 +201,28 @@ export interface ReviewCommentResponse {
     console.log(`✅ Comment posted successfully: ${result.html_url}`);
     return result as IssueCommentResponse;
   }
+
+ export async function fetchCompleteIssueData(owner: string, repo: string, issueNumber: number) {
+    const token = process.env.GITHUB_API_TOKEN;
+    
+    if (!token) {
+      throw new Error("GITHUB_API_TOKEN environment variable is not set");
+    }
+    
+    const url = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'User-Agent': 'PullQuestAI-Bot',
+      },
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`GitHub API error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    return await response.json();
+  }

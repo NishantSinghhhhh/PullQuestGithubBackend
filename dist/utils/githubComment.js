@@ -5,6 +5,7 @@ exports.postIssueComment = postIssueComment;
 exports.postPullRequestComment = postPullRequestComment;
 exports.postPullRequestReviewComment = postPullRequestReviewComment;
 exports.postPRFormComment = postPRFormComment;
+exports.fetchCompleteIssueData = fetchCompleteIssueData;
 async function postIssueComment(owner, repo, issueNumber, commentBody) {
     const token = process.env.GITHUB_COMMENT_TOKEN;
     const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/comments`;
@@ -97,5 +98,24 @@ async function postPRFormComment(owner, repo, issueNumber, commentBody) {
     const result = await res.json();
     console.log(`✅ Comment posted successfully: ${result.html_url}`);
     return result;
+}
+async function fetchCompleteIssueData(owner, repo, issueNumber) {
+    const token = process.env.GITHUB_API_TOKEN;
+    if (!token) {
+        throw new Error("GITHUB_API_TOKEN environment variable is not set");
+    }
+    const url = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`;
+    const response = await fetch(url, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+            'User-Agent': 'PullQuestAI-Bot',
+        },
+    });
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    return await response.json();
 }
 //# sourceMappingURL=githubComment.js.map

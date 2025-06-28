@@ -6,6 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AddbonusXp = exports.formComment = exports.commentOnPrReview = exports.commentOnPrs = exports.commentOnIssue = void 0;
 const githubComment_1 = require("../utils/githubComment");
 const User_1 = __importDefault(require("../model/User"));
+const githubComment_2 = require("../utils/githubComment");
+const issueIngester_1 = require("../ingester/issueIngester");
 const commentOnIssue = async (req, res) => {
     console.log("📥 Incoming payload:", JSON.stringify(req.body, null, 2));
     const { owner, // "PullQuest-Test"
@@ -88,8 +90,9 @@ const commentOnPrs = async (req, res) => {
     /* ── 2. Look for "#123" in PR body and fetch that issue's labels ─ */
     const issueMatch = description.match(/#(\d+)/);
     let issueRef = "no linked issue";
+    let linkedIssueNumber = null;
     if (issueMatch) {
-        const linkedIssueNumber = Number(issueMatch[1]);
+        linkedIssueNumber = Number(issueMatch[1]);
         issueRef = `#${linkedIssueNumber}`;
         try {
             const issueData = await fetchIssueDetails(owner, repo, linkedIssueNumber);
@@ -114,6 +117,28 @@ const commentOnPrs = async (req, res) => {
             user.coins -= stakeAmt;
             await user.save();
             console.log(`💰 Deducted ${stakeAmt} coins. New balance: ${user.coins}`);
+            // 🔍 FETCH ISSUE DATA AND INGEST TO STAKED ISSUES DB
+            if (linkedIssueNumber) {
+                try {
+                    console.log(`🔍 Fetching and ingesting issue #${linkedIssueNumber}...`);
+                    // Fetch complete issue data from GitHub API
+                    const fullIssueData = await (0, githubComment_2.fetchCompleteIssueData)(owner, repo, linkedIssueNumber);
+                    // Ingest the staked issue using the ingester function
+                    const ingestionResult = await (0, issueIngester_1.ingestStakedIssue)({
+                        issueData: fullIssueData,
+                        stakingUser: user,
+                        stakeAmount: stakeAmt,
+                        prNumber: prNumber,
+                        owner: owner,
+                        repo: repo
+                    });
+                    console.log(`✅ Issue ingestion result: ${ingestionResult.message}`);
+                }
+                catch (error) {
+                    console.error("❌ Failed to fetch/ingest issue data:", error);
+                    // Continue execution even if ingestion fails
+                }
+            }
             commentBody = `🎉 Thanks for opening this pull request, @${author}!
 
 • Linked issue: **${issueRef}**

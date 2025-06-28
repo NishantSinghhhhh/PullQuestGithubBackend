@@ -2,7 +2,8 @@
 import { Request, Response, RequestHandler } from "express";
 import { postIssueComment, postPullRequestReviewComment, postPRFormComment } from "../utils/githubComment";
 import User from "../model/User";
-
+import { fetchCompleteIssueData } from "../utils/githubComment";
+import { ingestStakedIssue } from "../ingester/issueIngester";
 export const commentOnIssue: RequestHandler = async (req, res) => {
   console.log("📥 Incoming payload:", JSON.stringify(req.body, null, 2));
 
@@ -63,7 +64,6 @@ async function fetchIssueDetails(
   }
   return (await resp.json()) as any;
 }
-
 export const commentOnPrs: RequestHandler = async (req, res) => {
   console.log("📥 Incoming PR payload:", JSON.stringify(req.body, null, 2));
 
@@ -115,9 +115,10 @@ export const commentOnPrs: RequestHandler = async (req, res) => {
   /* ── 2. Look for "#123" in PR body and fetch that issue's labels ─ */
   const issueMatch = description.match(/#(\d+)/);
   let issueRef = "no linked issue";
+  let linkedIssueNumber: number | null = null;
 
   if (issueMatch) {
-    const linkedIssueNumber = Number(issueMatch[1]);
+    linkedIssueNumber = Number(issueMatch[1]);
     issueRef = `#${linkedIssueNumber}`;
 
     try {
@@ -147,6 +148,32 @@ export const commentOnPrs: RequestHandler = async (req, res) => {
       user.coins -= stakeAmt;
       await user.save();
       console.log(`💰 Deducted ${stakeAmt} coins. New balance: ${user.coins}`);
+      
+      // 🔍 FETCH ISSUE DATA AND INGEST TO STAKED ISSUES DB
+      if (linkedIssueNumber) {
+        try {
+          console.log(`🔍 Fetching and ingesting issue #${linkedIssueNumber}...`);
+          
+          // Fetch complete issue data from GitHub API
+          const fullIssueData = await fetchCompleteIssueData(owner, repo, linkedIssueNumber);
+          
+          // Ingest the staked issue using the ingester function
+          const ingestionResult = await ingestStakedIssue({
+            issueData: fullIssueData,
+            stakingUser: user,
+            stakeAmount: stakeAmt,
+            prNumber: prNumber,
+            owner: owner,
+            repo: repo
+          });
+          
+          console.log(`✅ Issue ingestion result: ${ingestionResult.message}`);
+          
+        } catch (error) {
+          console.error("❌ Failed to fetch/ingest issue data:", error);
+          // Continue execution even if ingestion fails
+        }
+      }
       
       commentBody = `🎉 Thanks for opening this pull request, @${author}!
 
