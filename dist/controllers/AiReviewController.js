@@ -147,7 +147,9 @@ const handleCodeReview = async (req, res) => {
             continue;
         }
         try {
-            const c = await (0, githubComment_1.postPullRequestReviewComment)(owner, repo, prNumber, sha, s.file, rel.lineInHunk, rel.side, s.comment);
+            const c = await (0, githubComment_1.postPullRequestReviewComment)(owner, repo, prNumber, sha, s.file, s.line, // ✅ Use the AI's line number
+            s.side, s.comment, diff // ✅ Add the full diff
+            );
             postedUrls.push(c.html_url || c.url);
         }
         catch (err) {

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AddbonusXp = exports.formComment = exports.commentOnPrReview = exports.commentOnPrs = exports.commentOnIssue = void 0;
+exports.AddbonusXp = exports.formComment = exports.commentOnPrs = exports.commentOnIssue = void 0;
 const githubComment_1 = require("../utils/githubComment");
 const User_1 = __importDefault(require("../model/User"));
 const githubComment_2 = require("../utils/githubComment");
@@ -184,27 +184,6 @@ const commentOnPrs = async (req, res) => {
     }
 };
 exports.commentOnPrs = commentOnPrs;
-const commentOnPrReview = async (req, res) => {
-    console.log("📥 Incoming PR review payload:", JSON.stringify(req.body, null, 2));
-    const { owner, repo, pullNumber, commitId, path, line, side, body: commentBody } = req.body;
-    // Validate required fields
-    if (!owner || !repo || !pullNumber || !commitId || !path || !line || !side || !commentBody) {
-        res.status(400).json({
-            error: "owner, repo, pullNumber, commitId, path, line, side and body are all required"
-        });
-        return;
-    }
-    try {
-        const reviewComment = await (0, githubComment_1.postPullRequestReviewComment)(owner, repo, pullNumber, commitId, path, line, side, commentBody);
-        // Return the URL of the created review comment
-        res.status(201).json({ url: reviewComment.html_url || reviewComment.url });
-    }
-    catch (err) {
-        console.error("❌ Failed to post PR review comment:", err);
-        res.status(502).json({ error: err.message ?? "GitHub review-comment request failed" });
-    }
-};
-exports.commentOnPrReview = commentOnPrReview;
 const formComment = async (req, res) => {
     console.log("📥 Incoming XP-form payload:", JSON.stringify(req.body, null, 2));
     const { owner, repo, prNumber, commenter } = req.body;

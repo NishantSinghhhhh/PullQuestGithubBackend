@@ -185,10 +185,10 @@ if (!sha) {
         prNumber!,
         sha,
         s.file,
-        rel.lineInHunk,
-        rel.side,
+        s.line,  // ✅ Use the AI's line number
+        s.side,
         s.comment,
-     // Add the diff parameter
+        diff     // ✅ Add the full diff
       );
       postedUrls.push(c.html_url || c.url);
     } catch (err: any) {
