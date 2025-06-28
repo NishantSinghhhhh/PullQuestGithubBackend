@@ -110,10 +110,15 @@ const commentOnPrs = async (req, res) => {
         const userCoins = user.coins;
         if (userCoins >= stakeAmt) {
             console.log(`✅ ${author} has enough coins (${userCoins}) for stake (${stakeAmt})`);
+            // 💰 ACTUALLY DEDUCT THE COINS
+            user.coins -= stakeAmt;
+            await user.save();
+            console.log(`💰 Deducted ${stakeAmt} coins. New balance: ${user.coins}`);
             commentBody = `🎉 Thanks for opening this pull request, @${author}!
 
 • Linked issue: **${issueRef}**
-• 🪙 **Stake deducted:** ${stakeAmt} coins.`;
+• 🪙 **Stake deducted:** ${stakeAmt} coins.
+• 💰 **Remaining balance:** ${user.coins} coins.`;
         }
         else {
             console.log(`❌ ${author} doesn't have enough coins (${userCoins}) for stake (${stakeAmt})`);
