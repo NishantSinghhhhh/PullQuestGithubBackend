@@ -13,8 +13,6 @@ router.post('/ai-review', handleCodeReview);
 // New comprehensive issue analysis route
 router.post('/analyze-issue', handleIssueAnalysis);
 
-router.post('/generate-pr-summary', handleIssueAnalysis);
-
 router.post('/generate-pr-summary', handlePRSummary);
 
 export default router;

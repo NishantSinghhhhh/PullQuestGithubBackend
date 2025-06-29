@@ -11,7 +11,6 @@ const router = (0, express_1.Router)();
 router.post('/ai-review', AiReviewController_1.handleCodeReview);
 // New comprehensive issue analysis route
 router.post('/analyze-issue', LabelController_1.handleIssueAnalysis);
-router.post('/generate-pr-summary', LabelController_1.handleIssueAnalysis);
 router.post('/generate-pr-summary', GptController_1.handlePRSummary);
 exports.default = router;
 //# sourceMappingURL=ai-review.js.map
